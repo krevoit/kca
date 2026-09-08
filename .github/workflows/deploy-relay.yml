@@ -1,9 +1,9 @@
 name: Deploy T3 Connect relay
 
+# KCA fork: the fork uses the upstream relay, so auto-deploy on push is off.
+# Manual dispatch only.
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: read

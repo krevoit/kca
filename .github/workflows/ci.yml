@@ -1,10 +1,9 @@
 name: CI
 
+# KCA fork: upstream CI needs Blacksmith runners, which the fork does not
+# have. Manual dispatch only until CI is ported to standard runners.
 on:
-  pull_request:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
