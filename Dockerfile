@@ -38,9 +38,11 @@ RUN vp i
 RUN vp run --filter @t3tools/web build
 RUN node apps/server/scripts/cli.ts build --verbose
 
-# Trim to a self-contained runtime dir: server package + production deps
-# (`vp pm` forwards to pnpm; `pnpm deploy` respects `files: ["dist"]`).
-RUN vp pm deploy --filter t3 --prod /deploy
+# Trim to a self-contained runtime dir: server package + production deps.
+# (`vp pm` only forwards an allowlist, so use the real pnpm via corepack;
+# lockfileVersion 9 pins the pnpm 9 line. `pnpm deploy` respects `files`.)
+RUN corepack enable && corepack prepare pnpm@9 --activate && pnpm --version \
+  && pnpm --filter t3 deploy --prod /deploy
 
 # pnpm deploy follows `files: ["dist"]`, so the bundled client comes along.
 # Fail loudly here (not at container start) if it did not.
