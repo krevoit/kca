@@ -359,7 +359,7 @@ jobs:
           cache: true
           run-install: |
             args:
-              - --filter=t3...
+              - --filter=kca-cli...
 
       - name: Build node-pty linux-x64 prebuild
         shell: bash
@@ -487,7 +487,7 @@ jobs:
       - name: Install desktop dependencies
         env:
           pnpm_config_cache_dir: ${{ runner.temp }}/pnpm-metadata
-        run: vp install --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/scripts...
+        run: vp install --filter=@t3tools/desktop... --filter=kca-cli... --filter=@t3tools/scripts...
 
       - name: Cache resource monitor
         id: resource_monitor_cache
@@ -787,9 +787,9 @@ jobs:
 
   publish_cli:
     name: Publish CLI to npm
-    # KCA fork: opt-in. The npm name `t3` belongs to upstream, so this stays
-    # skipped unless the fork sets the KCA_PUBLISH_NPM repo variable to 'true'
-    # (and owns whatever name apps/server/package.json carries by then).
+    # KCA fork: opt-in. Publishes the `kca-cli` package (bin: `kca`), so this
+    # stays skipped unless the fork sets the KCA_PUBLISH_NPM repo variable to
+    # 'true' (and has claimed the name on npm).
     needs: [preflight, relay_public_config, quality, build]
     if: ${{ !failure() && !cancelled() && vars.KCA_PUBLISH_NPM == 'true' && needs.preflight.result == 'success' && needs.relay_public_config.result == 'success' && needs.quality.result == 'success' && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04 # blacksmith-8vcpu-ubuntu-2404
@@ -819,7 +819,7 @@ jobs:
           cache: true
           run-install: |
             args:
-              - --filter=t3...
+              - --filter=kca-cli...
               - --filter=@t3tools/web...
               - --filter=@t3tools/scripts...
 
@@ -843,7 +843,7 @@ jobs:
       # The t3 build task depends on @t3tools/web#build, so the web client is
       # built (once) as part of this step.
       - name: Build CLI package
-        run: vp run --filter t3 build
+        run: vp run --filter kca-cli build
 
       - name: Download resource monitors
         uses: actions/download-artifact@v8

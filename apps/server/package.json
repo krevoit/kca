@@ -1,5 +1,5 @@
 {
-  "name": "t3",
+  "name": "kca-cli",
   "version": "0.0.40",
   "license": "MIT",
   "repository": {
@@ -8,7 +8,7 @@
     "directory": "apps/server"
   },
   "bin": {
-    "t3": "./dist/bin.mjs"
+    "kca": "./dist/bin.mjs"
   },
   "files": [
     "dist"
