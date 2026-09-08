@@ -39,9 +39,10 @@ RUN vp run --filter @t3tools/web build
 RUN node apps/server/scripts/cli.ts build --verbose
 
 # Trim to a self-contained runtime dir: server package + production deps.
-# Use the same pnpm line the toolchain vendors (v11), installed deterministically
-# through npm; `--legacy` keeps `deploy` working without injected workspace deps.
-RUN npm i -g pnpm@11.10.0 && pnpm --version \
+# The base image already ships a corepack pnpm shim resolving to the same pnpm
+# 11 line the toolchain vendors; `--legacy` keeps `deploy` working without
+# injected workspace deps.
+RUN pnpm --version \
   && pnpm --filter t3 deploy --prod --legacy /deploy
 
 # pnpm deploy follows `files: ["dist"]`, so the bundled client comes along.
