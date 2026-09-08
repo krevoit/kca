@@ -1144,9 +1144,11 @@ jobs:
 
   finalize:
     name: Finalize release
-    # KCA fork: needs a RELEASE_APP_ID/RELEASE_APP_PRIVATE_KEY GitHub App to
-    # push the version-bump commit. Skipped without them.
-    if: ${{ !failure() && !cancelled() && secrets.RELEASE_APP_ID != '' && needs.preflight.result == 'success' && needs.release.result == 'success' && needs.preflight.outputs.release_channel == 'stable' }}
+    # KCA fork: opt-in via the KCA_FINALIZE repo variable. Finalizing pushes a
+    # version-bump commit and needs a RELEASE_APP_ID/RELEASE_APP_PRIVATE_KEY
+    # GitHub App. (NB: the `secrets` context is not allowed in job `if`
+    # expressions, hence the vars flag instead of a secrets presence check.)
+    if: ${{ !failure() && !cancelled() && vars.KCA_FINALIZE == 'true' && needs.preflight.result == 'success' && needs.release.result == 'success' && needs.preflight.outputs.release_channel == 'stable' }}
     needs: [preflight, release]
     runs-on: ubuntu-24.04
     timeout-minutes: 10

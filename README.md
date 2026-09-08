@@ -198,8 +198,8 @@ and the Docker image cover the rest.
   [running as a background service](./docs/user/background-service.md).
 - Releases (desktop, Docker) are cut from tags: `git tag v0.0.40 && git push origin v0.0.40`.
   The Release workflow builds macOS arm64 DMG + Linux AppImage/`.deb` on
-  standard GitHub runners; npm/Vercel/AUR/Discord steps are opt-in via
-  `KCA_PUBLISH_NPM` / `KCA_DEPLOY_WEB` / `KCA_PUBLISH_AUR` repo variables.
+  standard GitHub runners; npm/Vercel/AUR/finalize steps are opt-in via
+  `KCA_PUBLISH_NPM` / `KCA_DEPLOY_WEB` / `KCA_PUBLISH_AUR` / `KCA_FINALIZE` repo variables.
 - Building from source: install `vp` (`curl -fsSL https://vite.plus | bash`),
   then `vp i`. Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a PR.
 
