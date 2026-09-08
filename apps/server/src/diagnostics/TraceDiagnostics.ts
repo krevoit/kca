@@ -61,7 +61,7 @@ export class TraceDiagnostics extends Context.Service<
       options: TraceDiagnosticsOptions,
     ) => Effect.Effect<ServerTraceDiagnosticsResult>;
   }
->()("t3/diagnostics/TraceDiagnostics") {}
+>()("kca-cli/diagnostics/TraceDiagnostics") {}
 
 interface TraceDiagnosticsInput {
   readonly traceFilePath: string;
