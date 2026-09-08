@@ -16,6 +16,7 @@ import * as NodeOS from "node:os";
 
 import {
   CodexSettings,
+  ProviderDriverKind,
   USAGE_CONTRACT_VERSION,
   resolveProviderInstanceEnabled,
   type ProviderInstanceConfig,
@@ -256,13 +257,15 @@ export const make = Effect.gen(function* () {
         readonly instanceId: string;
         readonly config: ProviderInstanceConfig;
       }> = Object.entries(settings.providerInstances)
-        .filter(([, instance]) => instance.driver === "codex" && resolveProviderInstanceEnabled(instance))
+        .filter(
+          ([, instance]) => instance.driver === "codex" && resolveProviderInstanceEnabled(instance),
+        )
         .map(([instanceId, config]) => ({ instanceId, config }));
       if (!Object.hasOwn(settings.providerInstances, "codex")) {
         const legacyInstance = {
           instanceId: "codex",
           config: {
-            driver: "codex" as const,
+            driver: ProviderDriverKind.make("codex"),
             config: settings.providers.codex,
           },
         };
@@ -278,7 +281,7 @@ export const make = Effect.gen(function* () {
       });
 
       const seenHomes = new Set<string>();
-      const dirs: Array<{ provider: "codex"; dir: string }> = [];
+      const dirs: Array<{ provider: "codex"; dir: string; fileName?: string }> = [];
       for (const { config: instance } of instances) {
         const environmentHome =
           instance.environment?.findLast((variable) => variable.name === "CODEX_HOME")?.value ??
@@ -299,7 +302,10 @@ export const make = Effect.gen(function* () {
         seenHomes.add(homeKey);
         // sessions holds live transcripts; archived_sessions holds the same
         // JSONL shape for rotated sessions. Both are priced identically.
-        dirs.push({ provider: "codex" as const, dir: path.join(layout.sharedHomePath, "sessions") });
+        dirs.push({
+          provider: "codex" as const,
+          dir: path.join(layout.sharedHomePath, "sessions"),
+        });
         dirs.push({
           provider: "codex" as const,
           dir: path.join(layout.sharedHomePath, "archived_sessions"),
@@ -311,7 +317,10 @@ export const make = Effect.gen(function* () {
         const layout = yield* resolveCodexHomeLayout(settings.providers.codex).pipe(
           Effect.provideService(Path.Path, path),
         );
-        dirs.push({ provider: "codex" as const, dir: path.join(layout.sharedHomePath, "sessions") });
+        dirs.push({
+          provider: "codex" as const,
+          dir: path.join(layout.sharedHomePath, "sessions"),
+        });
       }
       return dirs;
     },

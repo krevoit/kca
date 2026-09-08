@@ -24,7 +24,7 @@ What the fork changes:
 ## 0. Providers first
 
 KCA drives your existing provider CLIs. Install and log in to at least one
-*where the KCA server will run*:
+_where the KCA server will run_:
 
 - Codex: install [Codex CLI](https://developers.openai.com/codex/cli) and run `codex login`
 - Claude: install [Claude Code](https://claude.com/product/claude-code) and run `claude auth login`
@@ -72,7 +72,7 @@ Then open `http://<host>:8080`.
   docker exec -it kca node dist/bin.mjs pair
   ```
 
-Provider CLIs must be installed *where the server runs*. For a Docker host
+Provider CLIs must be installed _where the server runs_. For a Docker host
 without them, either `docker exec` in and install/log in your CLIs, or run KCA
 natively on the machine that has them (§2) and use the container purely as an
 always-on WebUI attached to that environment via pairing (§2.3).

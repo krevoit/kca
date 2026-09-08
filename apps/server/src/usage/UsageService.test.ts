@@ -93,6 +93,38 @@ const serviceLayers = (input: {
     ),
   );
 
+function codexTranscript(sessionId: string, outputTokens: number): string {
+  const lines = [
+    {
+      type: "session_meta",
+      timestamp: "2026-08-01T10:00:00Z",
+      payload: { type: "session_meta", id: sessionId },
+    },
+    {
+      type: "turn_context",
+      timestamp: "2026-08-01T10:00:01Z",
+      payload: { type: "turn_context", model: "gpt-5.6-sol" },
+    },
+    {
+      type: "event_msg",
+      timestamp: "2026-08-01T10:00:02Z",
+      payload: {
+        type: "token_count",
+        info: {
+          last_token_usage: {
+            input_tokens: 10,
+            cached_input_tokens: 0,
+            cache_write_input_tokens: 0,
+            output_tokens: outputTokens,
+            reasoning_output_tokens: 0,
+          },
+        },
+      },
+    },
+  ];
+  return lines.map((line) => `${JSON.stringify(line)}\n`).join("");
+}
+
 function totalOutputTokens(summary: { buckets: readonly { totals: { outputTokens: number } }[] }) {
   return summary.buckets.reduce((sum, bucket) => sum + bucket.totals.outputTokens, 0);
 }
@@ -156,6 +188,58 @@ describe("UsageService", () => {
       yield* Effect.promise(() => NodeFSP.appendFile(transcript, claudeLine(2, 7)));
       const second = yield* service.readSummary(WINDOW);
       assert.strictEqual(totalOutputTokens(second), 12);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live("scans every configured Codex home plus archived sessions", () =>
+    Effect.gen(function* () {
+      const { home } = yield* setup;
+      const personalHome = NodePath.join(home, "codex-personal");
+      const workHome = NodePath.join(home, "codex-work");
+      const personalSessions = NodePath.join(personalHome, "sessions", "a.jsonl");
+      const personalArchive = NodePath.join(personalHome, "archived_sessions", "c.jsonl");
+      const workSessions = NodePath.join(workHome, "sessions", "b.jsonl");
+      for (const file of [personalSessions, personalArchive, workSessions]) {
+        yield* Effect.promise(() => NodeFSP.mkdir(NodePath.dirname(file), { recursive: true }));
+      }
+      yield* Effect.promise(() =>
+        NodeFSP.writeFile(personalSessions, codexTranscript("session-a", 5)),
+      );
+      yield* Effect.promise(() =>
+        NodeFSP.writeFile(personalArchive, codexTranscript("session-c", 11)),
+      );
+      yield* Effect.promise(() => NodeFSP.writeFile(workSessions, codexTranscript("session-b", 7)));
+
+      const service = yield* UsageService.make.pipe(
+        Effect.provide(
+          serviceLayers({
+            prefix: "usage-service-codex-homes-test",
+            home,
+            settings: {
+              providers: {
+                claudeAgent: { homePath: NodePath.join(home, "claude") },
+                codex: { homePath: personalHome },
+              },
+              providerInstances: {
+                codex: { driver: "codex", config: { homePath: personalHome } },
+                codex_work: { driver: "codex", config: { homePath: workHome } },
+              },
+            },
+          }),
+        ),
+      );
+
+      const summary = yield* service.readSummary(WINDOW);
+      assert.strictEqual(totalOutputTokens(summary), 23);
+      const codexDirs = summary.sources
+        .filter((source) => source.fingerprint.provider === "codex" && source.status === "ok")
+        .map((source) => source.fingerprint.resolvedHomePath)
+        .sort();
+      assert.deepStrictEqual(codexDirs, [
+        NodePath.join(personalHome, "archived_sessions"),
+        NodePath.join(personalHome, "sessions"),
+        NodePath.join(workHome, "sessions"),
+      ]);
     }).pipe(Effect.scoped),
   );
 

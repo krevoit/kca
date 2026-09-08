@@ -2762,6 +2762,9 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       executableName: "t3code",
       icon: "icons",
       category: "Development",
+      // FPM targets (.deb/.rpm) require a maintainer; AppImage ignores it.
+      maintainer: "krevoit <22700768+krevoit@users.noreply.github.com>",
+      description: "KCA — desktop control surface for local coding agents.",
       // electron-builder turns these into MimeType=x-scheme-handler/<scheme>;
       // in the .desktop entry (Exec already gets %U), so browsers can hand
       // t3code:// OAuth callbacks to the app.
