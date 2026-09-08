@@ -598,6 +598,55 @@ it.effect("decodes thread.meta-updated payloads with explicit provider", () =>
   }),
 );
 
+it.effect("decodes thread.meta-updated payloads carrying a sticky note", () =>
+  Effect.gen(function* () {
+    const parsed = yield* decodeThreadMetaUpdatedPayload({
+      threadId: "thread-1",
+      note: "ship it",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+    assert.strictEqual(parsed.note, "ship it");
+
+    const cleared = yield* decodeThreadMetaUpdatedPayload({
+      threadId: "thread-1",
+      note: null,
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+    assert.strictEqual(cleared.note, null);
+
+    const untouched = yield* decodeThreadMetaUpdatedPayload({
+      threadId: "thread-1",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+    assert.strictEqual(untouched.note, undefined);
+  }),
+);
+
+it.effect("accepts sticky notes on thread.meta.update commands within the length limit", () =>
+  Effect.gen(function* () {
+    const command = yield* decodeOrchestrationCommand({
+      type: "thread.meta.update",
+      commandId: "cmd-note-1",
+      threadId: "thread-1",
+      note: "ship it",
+    });
+    assert.strictEqual(command.type, "thread.meta.update");
+    if (command.type === "thread.meta.update") {
+      assert.strictEqual(command.note, "ship it");
+    }
+
+    const exit = yield* Effect.exit(
+      decodeOrchestrationCommand({
+        type: "thread.meta.update",
+        commandId: "cmd-note-2",
+        threadId: "thread-1",
+        note: "x".repeat(2001),
+      }),
+    );
+    assert.isTrue(Exit.isFailure(exit));
+  }),
+);
+
 it.effect("decodes thread archive and unarchive commands", () =>
   Effect.gen(function* () {
     const archive = yield* decodeOrchestrationCommand({

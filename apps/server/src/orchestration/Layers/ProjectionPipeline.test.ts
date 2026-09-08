@@ -296,6 +296,70 @@ it.layer(Layer.fresh(makeProjectionPipelinePrefixedTestLayer("t3-branch-pr-proje
   },
 );
 
+it.layer(Layer.fresh(makeProjectionPipelinePrefixedTestLayer("t3-note-projection-")))(
+  "thread sticky note projection",
+  (it) => {
+    it.effect("persists sticky note updates through the SQL pipeline", () =>
+      Effect.gen(function* () {
+        const projectionPipeline = yield* OrchestrationProjectionPipeline;
+        const eventStore = yield* OrchestrationEventStore;
+        const sql = yield* SqlClient.SqlClient;
+        const now = "2026-01-01T00:00:00.000Z";
+        const threadId = ThreadId.make("thread-note");
+        const projectId = ProjectId.make("project-note");
+        const eventFields = {
+          aggregateKind: "thread" as const,
+          aggregateId: threadId,
+          occurredAt: now,
+          commandId: null,
+          causationEventId: null,
+          correlationId: null,
+          metadata: {},
+        };
+        const created = yield* eventStore.append({
+          ...eventFields,
+          type: "thread.created",
+          eventId: EventId.make("evt-note-created"),
+          payload: {
+            threadId,
+            projectId,
+            title: "Note thread",
+            modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "gpt-5" },
+            runtimeMode: "full-access",
+            interactionMode: "default",
+            branch: null,
+            worktreePath: null,
+            createdAt: now,
+            updatedAt: now,
+          },
+        });
+        yield* projectionPipeline.projectEvent(created);
+
+        const readNote = sql<{ readonly note: string | null }>`
+          SELECT note FROM projection_threads WHERE thread_id = ${threadId}
+        `;
+        assert.deepEqual(yield* readNote, [{ note: null }]);
+
+        const updates = [
+          { payload: { note: "ship it" }, expected: "ship it" },
+          { payload: { title: "Renamed" }, expected: "ship it" },
+          { payload: { note: null }, expected: null },
+        ];
+        for (const [index, update] of updates.entries()) {
+          const event = yield* eventStore.append({
+            ...eventFields,
+            type: "thread.meta-updated",
+            eventId: EventId.make(`evt-note-update-${index}`),
+            payload: { threadId, updatedAt: now, ...update.payload },
+          });
+          yield* projectionPipeline.projectEvent(event);
+          assert.deepEqual(yield* readNote, [{ note: update.expected }]);
+        }
+      }),
+    );
+  },
+);
+
 it.layer(BaseTestLayer)("OrchestrationProjectionPipeline", (it) => {
   it.effect("bootstraps all projection states and writes projection rows", () =>
     Effect.gen(function* () {

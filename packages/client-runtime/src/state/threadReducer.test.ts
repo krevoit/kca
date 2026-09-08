@@ -316,6 +316,45 @@ describe("applyThreadDetailEvent", () => {
       },
     );
 
+    it("sets and clears the sticky note without changing the title", () => {
+      const noted = applyThreadDetailEvent(baseThread, {
+        ...baseEventFields,
+        sequence: 5,
+        occurredAt: "2026-04-01T05:00:00.000Z",
+        aggregateKind: "thread",
+        aggregateId: ThreadId.make("thread-1"),
+        type: "thread.meta-updated",
+        payload: {
+          threadId: ThreadId.make("thread-1"),
+          note: "ship it",
+          updatedAt: "2026-04-01T05:00:00.000Z",
+        },
+      });
+
+      expect(noted.kind).toBe("updated");
+      if (noted.kind !== "updated") return;
+      expect(noted.thread.note).toBe("ship it");
+      expect(noted.thread.title).toBe(baseThread.title);
+
+      const cleared = applyThreadDetailEvent(noted.thread, {
+        ...baseEventFields,
+        sequence: 6,
+        occurredAt: "2026-04-01T06:00:00.000Z",
+        aggregateKind: "thread",
+        aggregateId: ThreadId.make("thread-1"),
+        type: "thread.meta-updated",
+        payload: {
+          threadId: ThreadId.make("thread-1"),
+          note: null,
+          updatedAt: "2026-04-01T06:00:00.000Z",
+        },
+      });
+
+      expect(cleared.kind).toBe("updated");
+      if (cleared.kind !== "updated") return;
+      expect(cleared.thread.note).toBeNull();
+    });
+
     it("patches title and branch", () => {
       const result = applyThreadDetailEvent(
         { ...baseThread, activeOrderKey: "m" },

@@ -635,6 +635,9 @@ export const OrchestrationThread = Schema.Struct({
   // Manual Active placement. Keyless threads retain their creation/re-entry
   // order above the arranged run. Settling clears this slot.
   activeOrderKey: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
+  // User-authored sticky note. View-only: rendered by clients, never included
+  // in agent context. Optional so payloads from pre-note servers still decode.
+  note: Schema.optional(Schema.NullOr(Schema.String)),
   // Pending-only state. Optional so older servers remain compatible.
   titleRegeneration: Schema.optional(Schema.NullOr(ThreadTitleRegeneration)),
   deletedAt: Schema.NullOr(IsoDateTime),
@@ -701,6 +704,9 @@ export const OrchestrationThreadShell = Schema.Struct({
   pinnedAt: Schema.optional(Schema.NullOr(IsoDateTime)),
   pinOrderKey: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   activeOrderKey: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
+  // User-authored sticky note. View-only: rendered by clients, never included
+  // in agent context. Optional so payloads from pre-note servers still decode.
+  note: Schema.optional(Schema.NullOr(Schema.String)),
   titleRegeneration: Schema.optional(Schema.NullOr(ThreadTitleRegeneration)),
   session: Schema.NullOr(OrchestrationSession),
   latestUserMessageAt: Schema.NullOr(IsoDateTime),
@@ -1015,6 +1021,13 @@ const ThreadActiveReorderCommand = Schema.Struct({
   orderKey: TrimmedNonEmptyString,
 });
 
+/** Maximum sticky-note length: room for working notes, bounded for the event store. */
+export const THREAD_NOTE_MAX_LENGTH = 2000 as const;
+
+/** User-authored sticky note text. Blank notes are normalised to `null` at the command boundary. */
+export const ThreadNote = Schema.String.check(Schema.isMaxLength(THREAD_NOTE_MAX_LENGTH));
+export type ThreadNote = typeof ThreadNote.Type;
+
 const ThreadMetaUpdateCommand = Schema.Struct({
   type: Schema.Literal("thread.meta.update"),
   commandId: CommandId,
@@ -1026,6 +1039,11 @@ const ThreadMetaUpdateCommand = Schema.Struct({
   expectedBranch: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   worktreePath: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
   linkedPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
+  /**
+   * User-authored sticky note. View-only: clients render it and never include
+   * it in agent context. `null` clears it; absent leaves it untouched.
+   */
+  note: Schema.optional(Schema.NullOr(ThreadNote)),
 }).check(
   Schema.makeFilter(
     (input) =>
@@ -1519,6 +1537,11 @@ export const ThreadMetaUpdatedPayload = Schema.Struct({
   regenerateTitle: Schema.optional(Schema.Literal(true)),
   /** Title at request time, used to avoid overwriting a later manual rename. */
   previousTitle: Schema.optional(TrimmedNonEmptyString),
+  /**
+   * User-authored sticky note. Optional so older clients ignore it while
+   * continuing to decode the event stream.
+   */
+  note: Schema.optional(Schema.NullOr(ThreadNote)),
   /** Pending state shared with clients. Null clears a matching request. */
   titleRegeneration: Schema.optional(Schema.NullOr(ThreadTitleRegeneration)),
   modelSelection: Schema.optional(ModelSelection),

@@ -907,6 +907,13 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           ...(command.title !== undefined && thread.titleRegeneration != null
             ? { titleRegeneration: null }
             : {}),
+          // Blank notes normalise to null so "no note" has one representation.
+          ...(command.note !== undefined
+            ? {
+                note:
+                  command.note === null || command.note.trim().length === 0 ? null : command.note,
+              }
+            : {}),
           ...(command.modelSelection !== undefined
             ? { modelSelection: command.modelSelection }
             : {}),

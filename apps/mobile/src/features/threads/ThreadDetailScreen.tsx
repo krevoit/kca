@@ -100,6 +100,7 @@ import {
   ThreadComposer,
 } from "./ThreadComposer";
 import { ThreadFeed } from "./ThreadFeed";
+import { ThreadNoteCard } from "./ThreadNoteCard";
 import type { ThreadContentPresentation } from "./threadContentPresentation";
 import { resolveThreadFeedSubmissionAnchor } from "./thread-feed-live-follow";
 
@@ -842,6 +843,11 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
 
   return (
     <View className="flex-1">
+      <ThreadNoteCard
+        environmentId={props.environmentId}
+        threadId={props.selectedThread.id}
+        note={props.selectedThread.note}
+      />
       {showContent ? (
         <View
           className="flex-1"

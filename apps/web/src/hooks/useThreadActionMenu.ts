@@ -13,15 +13,18 @@ import { useCallback, useMemo } from "react";
 import { resolveSnoozePresets, snoozeWakeDescription } from "../components/Sidebar.snooze";
 import {
   buildThreadActionMenuItems,
+  hasThreadNote,
   type ThreadActionMenuId,
 } from "../components/threadActionMenu.logic";
 import { stackedThreadToast, toastManager } from "../components/ui/toast";
 import { threadEnvironment } from "../state/threads";
+import { openNoteEditor } from "../state/threadNoteEditor";
 import { useAtomCommand } from "../state/use-atom-command";
 import {
   readEnvironmentSupportsPinning,
   readEnvironmentSupportsSettlement,
   readEnvironmentSupportsSnooze,
+  readEnvironmentSupportsThreadNotes,
   readEnvironmentSupportsTitleRegeneration,
   readThreadShell,
   useProjects,
@@ -134,6 +137,7 @@ export function useThreadActionMenu(input: {
           snooze: readEnvironmentSupportsSnooze(threadRef.environmentId),
           pinning: readEnvironmentSupportsPinning(threadRef.environmentId),
           titleRegeneration: readEnvironmentSupportsTitleRegeneration(threadRef.environmentId),
+          notes: readEnvironmentSupportsThreadNotes(threadRef.environmentId),
         };
         const isRegeneratingTitle = thread.titleRegeneration != null;
         const snoozePresets = resolveSnoozePresets(now, timestampFormat);
@@ -141,6 +145,7 @@ export function useThreadActionMenu(input: {
           branch: thread.branch ?? null,
           isPinned: thread.pinnedAt != null,
           isSettled: supports.settlement && thread.settledOverride === "settled",
+          hasNote: hasThreadNote(thread.note),
           isSnoozed: supports.snooze && effectiveSnoozed(thread, { now: now.toISOString() }),
           canSnoozeNow: canSnooze(thread, { now: now.toISOString() }),
           isRegeneratingTitle,
@@ -240,6 +245,9 @@ export function useThreadActionMenu(input: {
           }
           case "rename":
             onStartRename();
+            return;
+          case "edit-note":
+            openNoteEditor(scopedThreadKey(threadRef));
             return;
           case "regenerate-title":
             if (isRegeneratingTitle) return;

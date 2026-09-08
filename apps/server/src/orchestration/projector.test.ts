@@ -92,6 +92,7 @@ describe("orchestration projector", () => {
         updatedAt: now,
         archivedAt: null,
         activeOrderKey: null,
+        note: null,
         settledOverride: null,
         settledAt: null,
         unsettledAt: null,
@@ -165,6 +166,72 @@ describe("orchestration projector", () => {
         expect(model.threads[0]?.branchPullRequest).toEqual(update.expected);
         expect(model.threads[0]?.linkedPullRequest).toEqual(linkedPullRequest);
       }
+    }),
+  );
+
+  effectIt.effect("sets, preserves, and clears sticky notes", () =>
+    Effect.gen(function* () {
+      const now = "2026-01-01T00:00:00.000Z";
+      const eventFields = {
+        aggregateKind: "thread" as const,
+        aggregateId: "thread-1",
+        occurredAt: now,
+        commandId: null,
+      };
+      let model = yield* projectEvent(
+        createEmptyReadModel(now),
+        makeEvent({
+          ...eventFields,
+          sequence: 1,
+          type: "thread.created",
+          payload: {
+            threadId: "thread-1",
+            projectId: "project-1",
+            title: "demo",
+            modelSelection: { provider: "codex", model: "gpt-5-codex" },
+            runtimeMode: "full-access",
+            branch: null,
+            worktreePath: null,
+            createdAt: now,
+            updatedAt: now,
+          },
+        }),
+      );
+      expect(model.threads[0]?.note).toBeNull();
+
+      model = yield* projectEvent(
+        model,
+        makeEvent({
+          ...eventFields,
+          sequence: 2,
+          type: "thread.meta-updated",
+          payload: { threadId: "thread-1", note: "ship it", updatedAt: now },
+        }),
+      );
+      expect(model.threads[0]?.note).toBe("ship it");
+
+      // An unrelated meta update leaves the note alone.
+      model = yield* projectEvent(
+        model,
+        makeEvent({
+          ...eventFields,
+          sequence: 3,
+          type: "thread.meta-updated",
+          payload: { threadId: "thread-1", title: "Renamed", updatedAt: now },
+        }),
+      );
+      expect(model.threads[0]?.note).toBe("ship it");
+
+      model = yield* projectEvent(
+        model,
+        makeEvent({
+          ...eventFields,
+          sequence: 4,
+          type: "thread.meta-updated",
+          payload: { threadId: "thread-1", note: null, updatedAt: now },
+        }),
+      );
+      expect(model.threads[0]?.note).toBeNull();
     }),
   );
 

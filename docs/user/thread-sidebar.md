@@ -61,6 +61,12 @@ If dragging is unavailable for one environment, update the T3 Code server runnin
 environment. Pinned and active reordering require server support. Threads from older servers keep
 their default order until the server is updated.
 
+## Sticky notes
+
+Add a sticky note to any thread from its menu (**Add note…**) to keep working context where
+you can see it. The note pins above the conversation; edit or remove it from the note itself.
+Notes are only for you — they are never sent to the agent.
+
 ## Settle finished work
 
 Choose **Settle thread** from its menu to move finished work out of the active list

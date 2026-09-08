@@ -9,8 +9,15 @@ const baseState: ThreadActionMenuState = {
   isSnoozed: false,
   canSnoozeNow: true,
   isRegeneratingTitle: false,
+  hasNote: false,
   isRunning: false,
-  supports: { settlement: true, snooze: true, pinning: true, titleRegeneration: true },
+  supports: {
+    settlement: true,
+    snooze: true,
+    pinning: true,
+    titleRegeneration: true,
+    notes: true,
+  },
   snoozePresets: [
     { id: "hour", label: "In 1 hour", whenLabel: "3:00 PM", snoozedUntil: "2026-08-07T15:00:00Z" },
   ],
@@ -31,7 +38,13 @@ describe("buildThreadActionMenuItems", () => {
     expect(
       ids({
         ...baseState,
-        supports: { settlement: false, snooze: false, pinning: false, titleRegeneration: false },
+        supports: {
+          settlement: false,
+          snooze: false,
+          pinning: false,
+          titleRegeneration: false,
+          notes: false,
+        },
       }),
     ).toEqual(["rename", "mark-unread", "copy", "project-settings", "archive", "delete"]);
   });
@@ -70,6 +83,21 @@ describe("buildThreadActionMenuItems", () => {
     expect(snooze?.children?.map((child) => child.id)).toEqual(["snooze:hour"]);
   });
 
+  it("labels the note action by whether a note already exists", () => {
+    const add = buildThreadActionMenuItems(baseState).find((item) => item.id === "edit-note");
+    const edit = buildThreadActionMenuItems({ ...baseState, hasNote: true }).find(
+      (item) => item.id === "edit-note",
+    );
+    expect(add?.label).toBe("Add note…");
+    expect(edit?.label).toBe("Edit note…");
+  });
+
+  it("hides the note action when the server cannot persist notes", () => {
+    expect(ids({ ...baseState, supports: { ...baseState.supports, notes: false } })).not.toContain(
+      "edit-note",
+    );
+  });
+
   it("disables title regeneration while one is in flight", () => {
     const item = buildThreadActionMenuItems({ ...baseState, isRegeneratingTitle: true }).find(
       (candidate) => candidate.id === "regenerate-title",
@@ -95,7 +123,13 @@ describe("buildThreadActionMenuItems", () => {
     expect(
       ids({
         ...baseState,
-        supports: { settlement: false, snooze: false, pinning: false, titleRegeneration: false },
+        supports: {
+          settlement: false,
+          snooze: false,
+          pinning: false,
+          titleRegeneration: false,
+          notes: false,
+        },
       }),
     ).toContain("archive");
   });

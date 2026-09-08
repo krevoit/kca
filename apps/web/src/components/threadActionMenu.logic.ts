@@ -18,6 +18,7 @@ export type ThreadActionMenuId =
   | "unsnooze"
   | "rename"
   | "regenerate-title"
+  | "edit-note"
   | "mark-unread"
   | "copy"
   | "copy-path"
@@ -33,6 +34,8 @@ export interface ThreadActionMenuState {
   readonly isSnoozed: boolean;
   readonly canSnoozeNow: boolean;
   readonly isRegeneratingTitle: boolean;
+  /** Whether the thread already has a sticky note (drives Add vs Edit label). */
+  readonly hasNote: boolean;
   /** Archive rejects a thread with an active turn, so disable it here rather than let the action fail. */
   readonly isRunning: boolean;
   readonly supports: {
@@ -40,6 +43,7 @@ export interface ThreadActionMenuState {
     readonly snooze: boolean;
     readonly pinning: boolean;
     readonly titleRegeneration: boolean;
+    readonly notes: boolean;
   };
   readonly snoozePresets: ReadonlyArray<SnoozePreset>;
 }
@@ -96,6 +100,9 @@ export function buildThreadActionMenuItems(
         ]
       : []),
     { id: "rename", label: "Rename thread", icon: "pencil", separatorBefore: true },
+    ...(state.supports.notes
+      ? [{ id: "edit-note" as const, label: state.hasNote ? "Edit note…" : "Add note…" }]
+      : []),
     ...(state.supports.titleRegeneration
       ? [
           {
@@ -140,4 +147,13 @@ export function buildThreadActionMenuItems(
       icon: "trash",
     },
   ];
+}
+
+/**
+ * Whether a thread note counts as present for menu labels and card display.
+ * Blank strings cannot persist (the server normalises them to null), but
+ * older or in-flight states may still carry one.
+ */
+export function hasThreadNote(note: string | null | undefined): boolean {
+  return note !== null && note !== undefined && note.trim().length > 0;
 }

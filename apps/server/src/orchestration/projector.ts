@@ -334,6 +334,7 @@ export function projectEvent(
             modelSelection: payload.modelSelection,
             runtimeMode: payload.runtimeMode,
             interactionMode: payload.interactionMode,
+            note: null,
             branch: payload.branch,
             worktreePath: payload.worktreePath,
             branchPullRequest: null,
@@ -502,6 +503,7 @@ export function projectEvent(
           ...nextBase,
           threads: updateThread(nextBase.threads, payload.threadId, {
             ...(payload.title !== undefined ? { title: payload.title } : {}),
+            ...(payload.note !== undefined ? { note: payload.note } : {}),
             ...(payload.activeOrderKey !== undefined
               ? { activeOrderKey: payload.activeOrderKey }
               : {}),
