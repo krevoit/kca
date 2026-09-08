@@ -1,121 +1,209 @@
-# T3 Code
+# KCA
 
-T3 Code is an "agent harness control surface". It enables control of the agents on your machine with a best-in-class mobile app ([iOS](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824), [Android](https://play.google.com/store/apps/details?id=com.t3tools.t3code)), [web app](https://app.t3.codes) and [Electron-based desktop app](https://t3.codes).
+KCA is a control surface for the coding agents on your machines — drive your
+Claude Code, Codex, Cursor, Grok Build, OpenCode, and Google Antigravity
+subscriptions from a web UI, a desktop app, and a mobile app. If a provider is
+set up on a machine, KCA can control it there, locally or remotely.
 
-Works with your subscriptions on Claude Code, Codex, Cursor, Grok Build, OpenCode, and Google Antigravity. If they're set up on your computer, T3 Code can control them.
+KCA is a fork of [T3 Code](https://github.com/pingdotgg/t3code), which remains
+MIT-licensed © T3 Tools Inc (see [LICENSE](./LICENSE)). This fork keeps the
+upstream T3 Connect relay, so remote access, pairing, and mobile push keep
+working with no self-hosting required.
 
-## "Wait, what are you selling me?"
+What the fork changes:
 
-Nothing. We built T3 Code because we wanted the best possible development experience with agents. We were inspired by existing solutions like the Codex desktop app, Conductor, Claude Desktop and Cursor Glass, but none met our bar.
+- **Usage tab counts everything.** Every configured Codex home (all
+  `CODEX_HOME` instances, including `archived_sessions`) is scanned, and usage
+  is merged across all connected environments — including runs made outside KCA.
+- **Familiar defaults.** Legacy per-project sidebar and the composer context
+  meter are on by default, and the starry sidebar art shows on every channel.
+- **Binaries from this repo.** Linux AppImage + `.deb` and Apple Silicon DMG
+  are built by this repo's Release workflow, and the desktop app auto-updates
+  from `krevoit/kca` releases.
 
-We wanted something performant, remote-ready, and truly open. If we ever go the wrong direction, we want you to have everything you need to fork and build the editor that you want.
+## 0. Providers first
 
-## Installation
+KCA drives your existing provider CLIs. Install and log in to at least one
+*where the KCA server will run*:
 
-> [!WARNING]
-> T3 Code currently supports Codex, Claude, Cursor, Grok Build, OpenCode, and Antigravity. Install and authenticate at least one provider before use:
->
-> - Codex: install [Codex CLI](https://developers.openai.com/codex/cli) and run `codex login`
-> - Claude: install [Claude Code](https://claude.com/product/claude-code) and run `claude auth login`
-> - Cursor: install [Cursor CLI](https://cursor.com/cli) and run `agent login`
-> - Grok Build: install [Grok Build CLI](https://x.ai/cli) and run `grok login`
-> - OpenCode: install [OpenCode](https://opencode.ai) and run `opencode auth login`
-> - Antigravity: enable it in Settings, then use **Install Antigravity** and **Sign in with Google**. No CLI is required.
+- Codex: install [Codex CLI](https://developers.openai.com/codex/cli) and run `codex login`
+- Claude: install [Claude Code](https://claude.com/product/claude-code) and run `claude auth login`
+- Cursor: install [Cursor CLI](https://cursor.com/cli) and run `agent login`
+- Grok Build: install [Grok Build CLI](https://x.ai/cli) and run `grok login`
+- OpenCode: install [OpenCode](https://opencode.ai) and run `opencode auth login`
+- Antigravity: enable it in Settings, then use **Install Antigravity** and **Sign in with Google**. No CLI is required.
 
-### Try it out (install-free)
+## 1. WebUI (Docker — any host, including headless Linux)
 
-The easiest way to test T3 Code is to run the server in your terminal (requires Node.js 22.16+, 23.11+, or 24.10+):
+The container runs the KCA server with the web client bundled. No Node.js or
+checkout needed on the host.
 
 ```bash
-npx t3@latest
+docker run -d --name kca --restart unless-stopped \
+  -p 8080:8080 \
+  -v kca-data:/data \
+  ghcr.io/krevoit/kca:latest
 ```
 
-This will launch T3 Code's backend on your machine as well as the local web app to control your agents.
+Then open `http://<host>:8080`.
 
-Tip: Use `npx t3@latest --help` for the full CLI reference.
+- State (sessions, settings, pairing tokens) lives in the `kca-data` volume
+  via `T3CODE_HOME=/data`. Back it up; delete it for a factory reset.
+- Update: `docker pull ghcr.io/krevoit/kca:latest && docker rm -f kca`, then
+  re-run the same `docker run` command.
+- With docker compose:
 
-### Desktop app
+  ```yaml
+  services:
+    kca:
+      image: ghcr.io/krevoit/kca:latest
+      restart: unless-stopped
+      ports:
+        - "8080:8080"
+      volumes:
+        - kca-data:/data
+  volumes:
+    kca-data:
+  ```
 
-Install the latest version of the desktop app from [GitHub Releases](https://github.com/pingdotgg/t3code/releases), or from your favorite package registry:
+- Mint a pairing link from inside a running container:
 
-#### Windows (`winget`)
+  ```bash
+  docker exec -it kca node dist/bin.mjs pair
+  ```
 
-```bash
-winget install T3Tools.T3Code
-```
+Provider CLIs must be installed *where the server runs*. For a Docker host
+without them, either `docker exec` in and install/log in your CLIs, or run KCA
+natively on the machine that has them (§2) and use the container purely as an
+always-on WebUI attached to that environment via pairing (§2.3).
 
-#### macOS (Homebrew)
+Tagged releases also publish versioned images
+(`ghcr.io/krevoit/kca:v0.0.40`); `latest` tracks the newest stable release and
+`edge` tracks `main`.
 
-```bash
-brew install --cask t3-code
-```
+## 2. Linux (headless Debian server)
 
-#### Arch Linux (AUR)
+### 2.1 Run it
 
-Stable:
+Pick one:
 
-```bash
-yay -S t3code-bin
-```
+**A. Docker (recommended for headless).** Same as §1. The container exposes
+the full WebUI on port 8080; put it behind Caddy/Nginx with TLS if you expose
+it beyond your LAN/Tailnet.
 
-Nightly:
-
-```bash
-yay -S t3code-nightly-bin
-```
-
-The AUR packaging is maintained in this repository under [`packaging/aur`](./packaging/aur).
-
-## Some notes
-
-We are very very early in this project. Expect bugs.
-
-We are (mostly) not accepting contributions yet. Small fixes may be considered. Big features will not be.
-
-## Documentation
-
-Full docs live in [docs/](./docs). There's no docs site yet.
-
-- [Install and first run](./docs/user/install.md)
-- [Permission modes](./docs/user/permission-modes.md)
-- [Keyboard shortcuts](./docs/user/keybindings.md)
-- [Project settings](./docs/user/project-settings.md)
-- [Remote access from a phone or another machine](./docs/user/remote-access.md)
-- [Keeping app and server in sync](./docs/user/updating.md)
-- [Source control integrations](./docs/user/source-control.md)
-- Multiple accounts: [Codex](./docs/user/providers-codex.md) · [Claude](./docs/user/providers-claude.md)
-- [Run T3 Code as a background service](./docs/user/background-service.md)
-
-Building from source? Start at [docs/internals/overview.md](./docs/internals/overview.md).
-
-## If you REALLY want to contribute still.... read this first
-
-### Install `vp`
-
-T3 Code uses Vite+ so you'll need to install the global `vp` command-line tool.
-
-#### macOS / Linux
+**B. From source.** Requires Node.js 24+ and the `vp` toolchain:
 
 ```bash
-curl -fsSL https://vite.plus | bash
-```
-
-#### Windows
-
-```bash
-irm https://vite.plus/ps1 | iex
-```
-
-Checkout their getting started guide for more information: https://viteplus.dev/guide/
-
-### Install dependencies
-
-```bash
+curl -fsSL https://vite.plus | bash   # provides `vp`
+git clone https://github.com/krevoit/kca && cd kca
 vp i
+vp run --filter @t3tools/web build
+node apps/server/scripts/cli.ts build
 ```
 
-Read [CONTRIBUTING.md](./CONTRIBUTING.md) before reporting a bug or opening a PR.
+Then run it under systemd (`/etc/systemd/system/kca.service`):
 
-Have a feature request? Start an [Ideas discussion](https://github.com/pingdotgg/t3code/discussions/categories/ideas).
+```ini
+[Unit]
+Description=KCA server
+After=network-online.target
+Wants=network-online.target
 
-Need support? Join the [Discord](https://discord.gg/jn4EGJjrvv).
+[Service]
+User=kca
+Environment=T3CODE_HOME=/var/lib/kca
+Environment=T3CODE_HOST=127.0.0.1
+Environment=T3CODE_PORT=8080
+Environment=T3CODE_NO_BROWSER=true
+ExecStart=/usr/bin/node /opt/kca/apps/server/dist/bin.mjs serve
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload && sudo systemctl enable --now kca
+```
+
+**C. Debian desktop (GUI).** Grab the `.deb` from the
+[releases page](https://github.com/krevoit/kca/releases) (an AppImage is
+published too):
+
+```bash
+sudo apt install ./T3-Code-<version>-amd64.deb
+```
+
+### 2.2 Pair it with T3 Connect (remote access without open ports)
+
+KCA keeps upstream's T3 Connect relay, so this works out of the box — no
+server-side setup on your side.
+
+On the headless machine, with the server installed (B) or its checkout handy:
+
+```bash
+# Log the server environment in via the relay (headless-friendly).
+t3 connect login --headless
+# Check link + tunnel status any time.
+t3 connect status
+```
+
+For a direct (no-relay) link instead — same LAN, Tailscale, or SSH-forwarded
+port — mint a one-time pairing URL and open it on the other device:
+
+```bash
+t3 serve --host 0.0.0.0 --port 8080
+t3 pair
+```
+
+Over Tailscale, serve through it so the phone/browser gets HTTPS:
+
+```bash
+t3 serve --tailscale-serve
+t3 pair --tailscale
+```
+
+Full matrix (LAN, Tailscale, SSH, hosted web): [`docs/user/remote-access.md`](./docs/user/remote-access.md).
+
+### 2.3 Attach more machines
+
+Each machine runs its own KCA server (§2.1) holding its providers and
+filesystem. They all show up as environments in the WebUI/desktop/mobile
+clients, and the Usage tab merges spend across every connected one. Offline
+machines simply contribute nothing until they reconnect.
+
+## 3. macOS (Apple Silicon)
+
+1. Download `T3-Code-<version>-arm64.dmg` from the
+   [releases page](https://github.com/krevoit/kca/releases).
+2. Open it, drag the app into Applications.
+3. These builds are **unsigned** (no Apple Developer certificate in the fork),
+   so the first launch is blocked by Gatekeeper. Right-click the app →
+   **Open** → **Open**, or clear the quarantine flag:
+
+   ```bash
+   xattr -cr "/Applications/KCA (Alpha).app"
+   ```
+
+4. Updates install themselves from `krevoit/kca` releases — nothing to do.
+
+Intel Macs are not shipped (no CI runners for them); the Linux AppImage/`.deb`
+and the Docker image cover the rest.
+
+## Docs & development
+
+- Full user docs: [`docs/`](./docs) — start with
+  [install & first run](./docs/user/install.md),
+  [remote access](./docs/user/remote-access.md), and
+  [running as a background service](./docs/user/background-service.md).
+- Releases (desktop, Docker) are cut from tags: `git tag v0.0.40 && git push origin v0.0.40`.
+  The Release workflow builds macOS arm64 DMG + Linux AppImage/`.deb` on
+  standard GitHub runners; npm/Vercel/AUR/Discord steps are opt-in via
+  `KCA_PUBLISH_NPM` / `KCA_DEPLOY_WEB` / `KCA_PUBLISH_AUR` repo variables.
+- Building from source: install `vp` (`curl -fsSL https://vite.plus | bash`),
+  then `vp i`. Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a PR.
+
+## License
+
+MIT, © T3 Tools Inc — see [LICENSE](./LICENSE). Fork maintained at
+[github.com/krevoit/kca](https://github.com/krevoit/kca).

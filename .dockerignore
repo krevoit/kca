@@ -1,0 +1,16 @@
+node_modules
+apps/*/node_modules
+packages/*/node_modules
+apps/*/dist
+apps/*/dist-electron
+packages/*/dist
+.vite-plus
+apps/*/.vite-plus
+packages/*/.vite-plus
+.git
+.t3
+native/*/target
+release
+release-publish
+*.log
+.DS_Store

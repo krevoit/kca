@@ -20,7 +20,8 @@ export function resolveSidebarStageBackdropVariant(
   const normalized = stageLabel.trim().toLowerCase();
   if (normalized === "nightly") return "nightly";
   if (normalized === "dev") return "dev";
-  return null;
+  // KCA fork: starry nightly art is the default on every channel.
+  return "nightly";
 }
 
 export function resolveSidebarStageFocusRingOffsetClass(

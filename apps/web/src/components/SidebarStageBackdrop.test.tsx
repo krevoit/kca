@@ -12,7 +12,9 @@ describe("SidebarStageBackdrop", () => {
     expect(resolveSidebarStageBackdropVariant("Dev")).toBe("dev");
     expect(resolveSidebarStageBackdropVariant("Nightly")).toBe("nightly");
     expect(resolveSidebarStageBackdropVariant("Dev", false)).toBeNull();
-    expect(resolveSidebarStageBackdropVariant("Alpha")).toBeNull();
+    // KCA fork default: starry nightly art shows on every channel.
+    expect(resolveSidebarStageBackdropVariant("Alpha")).toBe("nightly");
+    expect(resolveSidebarStageBackdropVariant("Latest")).toBe("nightly");
   });
 
   it("resolves supported environment pill labels", () => {

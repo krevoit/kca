@@ -372,8 +372,8 @@ describe("ClientSettings environment identification", () => {
 });
 
 describe("ClientSettings sidebar", () => {
-  it("defaults to the current sidebar", () => {
-    expect(decodeClientSettings({}).legacySidebarEnabled).toBe(false);
+  it("defaults to the legacy sidebar (KCA fork default)", () => {
+    expect(decodeClientSettings({}).legacySidebarEnabled).toBe(true);
   });
 
   it("drops the retired sidebar v2 beta keys, resetting everyone to the default", () => {
@@ -381,7 +381,7 @@ describe("ClientSettings sidebar", () => {
       sidebarV2Enabled: false,
       sidebarV2ConfiguredByUser: true,
     });
-    expect(decoded.legacySidebarEnabled).toBe(false);
+    expect(decoded.legacySidebarEnabled).toBe(true);
     expect(decoded).not.toHaveProperty("sidebarV2Enabled");
     expect(decoded).not.toHaveProperty("sidebarV2ConfiguredByUser");
   });
@@ -401,8 +401,8 @@ describe("ClientSettings sidebar", () => {
 });
 
 describe("ClientSettings context window meter", () => {
-  it("defaults off and preserves an explicit legacy opt-in", () => {
-    expect(decodeClientSettings({}).contextWindowMeterEnabled).toBe(false);
+  it("defaults on (KCA fork default) and preserves explicit values", () => {
+    expect(decodeClientSettings({}).contextWindowMeterEnabled).toBe(true);
     expect(
       decodeClientSettings({ contextWindowMeterEnabled: true }).contextWindowMeterEnabled,
     ).toBe(true);

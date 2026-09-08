@@ -15,7 +15,10 @@
 import * as NodeOS from "node:os";
 
 import {
+  CodexSettings,
   USAGE_CONTRACT_VERSION,
+  resolveProviderInstanceEnabled,
+  type ProviderInstanceConfig,
   type ServerSettings as ServerSettingsValue,
   type UsageProviderKind,
   type UsageSource,
@@ -245,13 +248,82 @@ export const make = Effect.gen(function* () {
     ),
   );
 
+  /** Resolves one transcript dir per distinct Codex home (sessions + archive). */
+  const decodeCodexSettings = Schema.decodeUnknownOption(CodexSettings);
+  const resolveCodexTranscriptDirs = Effect.fn("UsageService.resolveCodexTranscriptDirs")(
+    function* (settings: ServerSettingsValue) {
+      const instances: Array<{
+        readonly instanceId: string;
+        readonly config: ProviderInstanceConfig;
+      }> = Object.entries(settings.providerInstances)
+        .filter(([, instance]) => instance.driver === "codex" && resolveProviderInstanceEnabled(instance))
+        .map(([instanceId, config]) => ({ instanceId, config }));
+      if (!Object.hasOwn(settings.providerInstances, "codex")) {
+        const legacyInstance = {
+          instanceId: "codex",
+          config: {
+            driver: "codex" as const,
+            config: settings.providers.codex,
+          },
+        };
+        if (resolveProviderInstanceEnabled(legacyInstance.config)) {
+          instances.push(legacyInstance);
+        }
+      }
+      // Built-in instance first so shared homes keep a stable owner.
+      instances.sort((left, right) => {
+        const leftDefault = left.instanceId === "codex" ? 0 : 1;
+        const rightDefault = right.instanceId === "codex" ? 0 : 1;
+        return leftDefault - rightDefault;
+      });
+
+      const seenHomes = new Set<string>();
+      const dirs: Array<{ provider: "codex"; dir: string }> = [];
+      for (const { config: instance } of instances) {
+        const environmentHome =
+          instance.environment?.findLast((variable) => variable.name === "CODEX_HOME")?.value ??
+          hostEnvironment["CODEX_HOME"];
+        const decoded = decodeCodexSettings(instance.config ?? {});
+        if (Option.isNone(decoded)) continue;
+        const codexSettings =
+          decoded.value.homePath.trim().length === 0 &&
+          decoded.value.shadowHomePath.trim().length === 0 &&
+          environmentHome?.trim()
+            ? { ...decoded.value, homePath: environmentHome }
+            : decoded.value;
+        const layout = yield* resolveCodexHomeLayout(codexSettings).pipe(
+          Effect.provideService(Path.Path, path),
+        );
+        const homeKey = path.resolve(layout.sharedHomePath);
+        if (seenHomes.has(homeKey)) continue;
+        seenHomes.add(homeKey);
+        // sessions holds live transcripts; archived_sessions holds the same
+        // JSONL shape for rotated sessions. Both are priced identically.
+        dirs.push({ provider: "codex" as const, dir: path.join(layout.sharedHomePath, "sessions") });
+        dirs.push({
+          provider: "codex" as const,
+          dir: path.join(layout.sharedHomePath, "archived_sessions"),
+        });
+      }
+      // Fall back to the default home so a fresh install still reports a
+      // (missing) source instead of an empty list.
+      if (dirs.length === 0) {
+        const layout = yield* resolveCodexHomeLayout(settings.providers.codex).pipe(
+          Effect.provideService(Path.Path, path),
+        );
+        dirs.push({ provider: "codex" as const, dir: path.join(layout.sharedHomePath, "sessions") });
+      }
+      return dirs;
+    },
+  );
+
   /** Resolves the transcript directory for each provider. */
   const resolveTranscriptDirs = Effect.fn("UsageService.resolveTranscriptDirs")(function* (
     settings: ServerSettingsValue,
   ) {
     const claudeHome = yield* resolveClaudeHomePath(settings.providers.claudeAgent);
     const claudeDir = yield* resolveClaudeTranscriptDir(claudeHome);
-    const codexLayout = yield* resolveCodexHomeLayout(settings.providers.codex);
+    const codexDirs = yield* resolveCodexTranscriptDirs(settings);
     // Grok Settings only expose the binary path; home is `$GROK_HOME` or `~/.grok`.
     // Empty/whitespace GROK_HOME must fall back: coalescing alone would scan cwd.
     const grokHomeEnv = hostEnvironment["GROK_HOME"]?.trim() ?? "";
@@ -262,7 +334,7 @@ export const make = Effect.gen(function* () {
 
     return [
       { provider: "claude" as const, dir: claudeDir },
-      { provider: "codex" as const, dir: path.join(codexLayout.sharedHomePath, "sessions") },
+      ...codexDirs,
       {
         provider: "grok" as const,
         dir: path.join(grokHome, "sessions"),
