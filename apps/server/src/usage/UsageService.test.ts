@@ -3,6 +3,7 @@
 import * as NodeFSP from "node:fs/promises";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
+import * as NodeSqlite from "node:sqlite";
 
 import { assert, describe, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -76,6 +77,8 @@ const serviceLayers = (input: {
   readonly onRatesFetch?: () => void;
   /** Defaults to an unparsable document so every scan retries the fetch. */
   readonly ratesDocument?: unknown;
+  /** Points OpenCode discovery at a temp dir via XDG_DATA_HOME. */
+  readonly opencodeDataDir?: string;
 }) =>
   ServerConfig.layerTest(process.cwd(), { prefix: input.prefix }).pipe(
     Layer.provideMerge(NodeServices.layer),
@@ -94,7 +97,10 @@ const serviceLayers = (input: {
       ),
     ),
     Layer.provideMerge(
-      Layer.succeed(HostProcessEnvironment, { GROK_HOME: NodePath.join(input.home, "grok") }),
+      Layer.succeed(HostProcessEnvironment, {
+        GROK_HOME: NodePath.join(input.home, "grok"),
+        ...(input.opencodeDataDir === undefined ? {} : { XDG_DATA_HOME: input.opencodeDataDir }),
+      }),
     ),
   );
 
@@ -132,6 +138,52 @@ function codexTranscript(sessionId: string, outputTokens: number): string {
 
 function totalOutputTokens(summary: { buckets: readonly { totals: { outputTokens: number } }[] }) {
   return summary.buckets.reduce((sum, bucket) => sum + bucket.totals.outputTokens, 0);
+}
+
+function writeOpencodeDb(
+  dataDir: string,
+  messages: ReadonlyArray<{
+    id: string;
+    sessionId: string;
+    createdMs: number;
+    role?: string;
+    modelID?: string;
+    cost?: number;
+    tokens?: { input: number; output: number; reasoning: number; read: number; write: number };
+  }>,
+) {
+  const db = new NodeSqlite.DatabaseSync(NodePath.join(dataDir, "opencode.db"));
+  try {
+    db.exec(
+      "CREATE TABLE message (id text PRIMARY KEY, session_id text NOT NULL, time_created integer NOT NULL, time_updated integer NOT NULL, data text NOT NULL)",
+    );
+    const insert = db.prepare(
+      "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)",
+    );
+    for (const message of messages) {
+      insert.run(
+        message.id,
+        message.sessionId,
+        message.createdMs,
+        message.createdMs,
+        JSON.stringify({
+          role: message.role ?? "assistant",
+          modelID: message.modelID ?? "example-model",
+          providerID: "openai",
+          cost: message.cost ?? 0,
+          tokens: {
+            input: message.tokens?.input ?? 0,
+            output: message.tokens?.output ?? 0,
+            reasoning: message.tokens?.reasoning ?? 0,
+            cache: { read: message.tokens?.read ?? 0, write: message.tokens?.write ?? 0 },
+          },
+          time: { created: message.createdMs },
+        }),
+      );
+    }
+  } finally {
+    db.close();
+  }
 }
 
 describe("UsageService", () => {
@@ -251,6 +303,83 @@ describe("UsageService", () => {
         NodePath.join(personalHome, "sessions"),
         NodePath.join(workHome, "sessions"),
       ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live("scans the OpenCode database alongside file transcripts", () =>
+    Effect.gen(function* () {
+      const { home, settings } = yield* setup;
+      const opencodeDataDir = NodePath.join(home, "opencode-data");
+      yield* Effect.promise(() => NodeFSP.mkdir(opencodeDataDir, { recursive: true }));
+      const createdMs = Date.parse("2026-08-01T10:00:00Z");
+      writeOpencodeDb(opencodeDataDir, [
+        {
+          id: "msg_1",
+          sessionId: "session-a",
+          createdMs,
+          cost: 0.0001,
+          tokens: { input: 10, output: 5, reasoning: 0, read: 0, write: 0 },
+        },
+        {
+          id: "msg_2",
+          sessionId: "session-a",
+          createdMs: createdMs + 1000,
+          tokens: { input: 20, output: 7, reasoning: 3, read: 4, write: 1 },
+        },
+        { id: "msg_3", sessionId: "session-a", createdMs: createdMs + 2000, role: "user" },
+        {
+          id: "msg_4",
+          sessionId: "session-b",
+          createdMs: createdMs + 3000,
+          cost: 0.00002,
+          tokens: { input: 1, output: 1, reasoning: 0, read: 0, write: 0 },
+        },
+      ]);
+
+      const service = yield* UsageService.make.pipe(
+        Effect.provide(
+          serviceLayers({
+            prefix: "usage-service-opencode-test",
+            home,
+            settings,
+            opencodeDataDir,
+          }),
+        ),
+      );
+
+      const summary = yield* service.readSummary(WINDOW);
+      const opencodeBuckets = summary.buckets.filter((bucket) => bucket.provider === "opencode");
+      // Reasoning folds into output; the user message is skipped.
+      assert.strictEqual(totalOutputTokens({ buckets: opencodeBuckets }), 5 + (7 + 3) + 1);
+      const costUsd = opencodeBuckets.reduce((sum, bucket) => sum + bucket.costUsd, 0);
+      assert.closeTo(costUsd, 0.00012, 1e-12);
+      const source = summary.sources.find((entry) => entry.fingerprint.provider === "opencode");
+      assert.strictEqual(source?.status, "ok");
+      assert.strictEqual(source?.distinctSessions, 2);
+      assert.strictEqual(source?.scannedFiles, 1);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live("reports a missing OpenCode source when no database exists", () =>
+    Effect.gen(function* () {
+      const { home, settings } = yield* setup;
+      const emptyDir = NodePath.join(home, "empty");
+      yield* Effect.promise(() => NodeFSP.mkdir(emptyDir, { recursive: true }));
+      const service = yield* UsageService.make.pipe(
+        Effect.provide(
+          serviceLayers({
+            prefix: "usage-service-opencode-missing-test",
+            home,
+            settings,
+            opencodeDataDir: emptyDir,
+          }),
+        ),
+      );
+
+      const summary = yield* service.readSummary(WINDOW);
+      const source = summary.sources.find((entry) => entry.fingerprint.provider === "opencode");
+      assert.strictEqual(source?.status, "missing");
+      assert.isFalse(summary.buckets.some((bucket) => bucket.provider === "opencode"));
     }).pipe(Effect.scoped),
   );
 

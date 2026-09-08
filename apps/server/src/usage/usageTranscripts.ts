@@ -485,4 +485,93 @@ export function parseGrokLine(line: string): readonly UsageRecord[] {
   return results;
 }
 
+/* -------------------------------------------------------------------------- */
+/* OpenCode                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One assistant message row from OpenCode's `opencode.db` (`message` table).
+ *
+ * Newer OpenCode versions keep SQLite as the source of truth (older ones wrote
+ * JSON under `storage/message/`); the reader selects the columns and hands the
+ * parsed `data` payload here. `timeCreatedMs` is the row's `time_created`
+ * column, falling back to `data.time.created` when it is missing.
+ */
+export interface OpencodeMessageInput {
+  readonly id: string;
+  readonly sessionId: string;
+  readonly timeCreatedMs: number | null;
+  readonly data: unknown;
+}
+
+function parseOpencodeTimestampMs(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return Math.trunc(value);
+  return parseTimestampMs(value);
+}
+
+/**
+ * Parses one OpenCode assistant message into a usage record.
+ *
+ * Field semantics verified against real `message.data` payloads:
+ * `tokens.input` excludes the cached portion (unlike Codex/Grok, which report
+ * it inclusive), while `tokens.output` excludes `tokens.reasoning`, so the
+ * record folds reasoning into output to honour the subset invariant and the
+ * mapped totals reconcile exactly with OpenCode's own `tokens.total`.
+ */
+export function parseOpencodeMessage(input: OpencodeMessageInput): UsageRecord | null {
+  const { data } = input;
+  if (typeof data !== "object" || data === null) return null;
+  const record = data as Record<string, unknown>;
+  if (record["role"] !== "assistant") return null;
+
+  const model = typeof record["modelID"] === "string" ? record["modelID"] : "";
+  if (model.length === 0) return null;
+
+  const tokens = record["tokens"];
+  if (typeof tokens !== "object" || tokens === null) return null;
+  const tokensRecord = tokens as Record<string, unknown>;
+  const cache = tokensRecord["cache"];
+  const cacheRecord =
+    typeof cache === "object" && cache !== null ? (cache as Record<string, unknown>) : {};
+
+  const time = record["time"];
+  const timestampMs =
+    input.timeCreatedMs ??
+    (typeof time === "object" && time !== null
+      ? parseOpencodeTimestampMs((time as Record<string, unknown>)["created"])
+      : null);
+  if (timestampMs === null) return null;
+
+  const outputTokens = int(tokensRecord["output"]);
+  const reasoningTokens = int(tokensRecord["reasoning"]);
+
+  const totals: UsageTokenTotals = {
+    uncachedInputTokens: int(tokensRecord["input"]),
+    cachedInputTokens: int(cacheRecord["read"]),
+    cacheCreationTokens: int(cacheRecord["write"]),
+    // Reported exclusive of reasoning (see above); folded in here so the
+    // subset invariant holds and totals match `tokens.total`.
+    outputTokens: outputTokens + reasoningTokens,
+    reasoningTokens,
+  };
+
+  if (totalTokens(totals) === 0) return null;
+
+  const cost = record["cost"];
+
+  return {
+    provider: "opencode",
+    timestampMs,
+    model,
+    sessionId: input.sessionId,
+    totals,
+    // OpenCode records the per-message cost when it knows one. A zero cost
+    // carries no information (free or subscription-routed usage), so those
+    // rows fall back to rate-table pricing like any other model.
+    reportedCostUsd: typeof cost === "number" && Number.isFinite(cost) && cost > 0 ? cost : null,
+    // Message ids are globally unique; the key guards the cross-file pass.
+    dedupeKey: `opencode:${input.id}`,
+  };
+}
+
 export { EMPTY_TOTALS };

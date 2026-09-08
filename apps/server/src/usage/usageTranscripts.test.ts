@@ -6,6 +6,7 @@ import {
   parseClaudeLine,
   parseCodexLine,
   parseGrokLine,
+  parseOpencodeMessage,
   totalTokens,
 } from "./usageTranscripts.ts";
 
@@ -562,5 +563,103 @@ describe("parseGrokLine", () => {
 
     const records = parseGrokLine(line);
     expect(records[0]?.timestampMs).toBe(1_786_372_566_000);
+  });
+});
+
+describe("parseOpencodeMessage", () => {
+  /** Shaped after a real `opencode.db` assistant message row. */
+  const messageData = (overrides: Record<string, unknown> = {}) => ({
+    role: "assistant",
+    mode: "build",
+    agent: "build",
+    modelID: "gpt-5.6-sol",
+    providerID: "openai",
+    cost: 0.002100214,
+    tokens: {
+      input: 8101,
+      output: 391,
+      reasoning: 3021,
+      cache: { read: 303857, write: 0 },
+    },
+    time: { created: 1_786_372_566_000, completed: 1_786_372_571_000 },
+    finish: "tool-calls",
+    ...overrides,
+  });
+
+  const input = (overrides: Record<string, unknown> = {}) => ({
+    id: "msg_abc123",
+    sessionId: "ses_xyz789",
+    timeCreatedMs: 1_786_372_566_000 as number | null,
+    data: messageData(),
+    ...overrides,
+  });
+
+  it("maps tokens with reasoning folded into output and keeps the reported cost", () => {
+    const record = parseOpencodeMessage(input());
+
+    expect(record?.provider).toBe("opencode");
+    expect(record?.model).toBe("gpt-5.6-sol");
+    expect(record?.sessionId).toBe("ses_xyz789");
+    expect(record?.timestampMs).toBe(1_786_372_566_000);
+    // input excludes cache (unlike Codex/Grok); output excludes reasoning.
+    expect(record?.totals).toEqual({
+      uncachedInputTokens: 8101,
+      cachedInputTokens: 303857,
+      cacheCreationTokens: 0,
+      outputTokens: 391 + 3021,
+      reasoningTokens: 3021,
+    });
+    expect(record?.reportedCostUsd).toBe(0.002100214);
+    expect(record?.dedupeKey).toBe("opencode:msg_abc123");
+  });
+
+  it("drops non-assistant messages", () => {
+    expect(parseOpencodeMessage(input({ data: messageData({ role: "user" }) }))).toBeNull();
+  });
+
+  it("drops zero-token rows", () => {
+    expect(
+      parseOpencodeMessage(
+        input({
+          data: messageData({
+            cost: 0,
+            tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+          }),
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it("drops rows without a model", () => {
+    expect(parseOpencodeMessage(input({ data: messageData({ modelID: "" }) }))).toBeNull();
+  });
+
+  it("treats a zero cost as unreported so rate-table pricing applies", () => {
+    const record = parseOpencodeMessage(input({ data: messageData({ cost: 0 }) }));
+
+    expect(record?.reportedCostUsd).toBeNull();
+    expect(
+      totalTokens(
+        record?.totals ?? {
+          uncachedInputTokens: 0,
+          cachedInputTokens: 0,
+          cacheCreationTokens: 0,
+          outputTokens: 0,
+          reasoningTokens: 0,
+        },
+      ),
+    ).toBeGreaterThan(0);
+  });
+
+  it("falls back to the payload timestamp when the column is missing", () => {
+    const record = parseOpencodeMessage(input({ timeCreatedMs: null }));
+
+    expect(record?.timestampMs).toBe(1_786_372_566_000);
+  });
+
+  it("drops rows with no usable timestamp", () => {
+    expect(
+      parseOpencodeMessage(input({ timeCreatedMs: null, data: messageData({ time: {} }) })),
+    ).toBeNull();
   });
 });

@@ -54,7 +54,16 @@ import {
   listTranscriptFiles,
   readDirectoryVolumeId,
   readTranscriptRecords,
+  type TranscriptParsePosition,
 } from "./usageTranscriptReader.ts";
+import {
+  isOpencodeSqliteAvailable,
+  OPENCODE_DB_FILENAME,
+  readOpencodeDbFingerprint,
+  readOpencodeMessageRecords,
+  resolveOpencodeDataDir,
+  type OpencodeDbFingerprint,
+} from "./usageOpencodeReader.ts";
 import {
   decodeScanCache,
   dedupeWithinFile,
@@ -249,6 +258,15 @@ export const make = Effect.gen(function* () {
     ),
   );
 
+  /** One provider location the scan walks: a transcript directory, one file
+   *  within it, or an OpenCode SQLite database beside it. */
+  interface ResolvedTranscriptDir {
+    readonly provider: UsageProviderKind;
+    readonly dir: string;
+    readonly fileName?: string;
+    readonly dbFileName?: string;
+  }
+
   /** Resolves one transcript dir per distinct Codex home (sessions + archive). */
   const decodeCodexSettings = Schema.decodeUnknownOption(CodexSettings);
   const resolveCodexTranscriptDirs = Effect.fn("UsageService.resolveCodexTranscriptDirs")(
@@ -333,6 +351,7 @@ export const make = Effect.gen(function* () {
     const claudeHome = yield* resolveClaudeHomePath(settings.providers.claudeAgent);
     const claudeDir = yield* resolveClaudeTranscriptDir(claudeHome);
     const codexDirs = yield* resolveCodexTranscriptDirs(settings);
+    const opencodeDataDir = resolveOpencodeDataDir(hostEnvironment);
     // Grok Settings only expose the binary path; home is `$GROK_HOME` or `~/.grok`.
     // Empty/whitespace GROK_HOME must fall back: coalescing alone would scan cwd.
     const grokHomeEnv = hostEnvironment["GROK_HOME"]?.trim() ?? "";
@@ -341,15 +360,17 @@ export const make = Effect.gen(function* () {
         ? path.resolve(expandHomePath(grokHomeEnv))
         : path.join(NodeOS.homedir(), ".grok");
 
-    return [
+    const dirs: ResolvedTranscriptDir[] = [
       { provider: "claude" as const, dir: claudeDir },
       ...codexDirs,
+      { provider: "opencode" as const, dir: opencodeDataDir, dbFileName: OPENCODE_DB_FILENAME },
       {
         provider: "grok" as const,
         dir: path.join(grokHome, "sessions"),
         fileName: "updates.jsonl",
       },
     ];
+    return dirs;
   });
 
   /**
@@ -457,7 +478,60 @@ export const make = Effect.gen(function* () {
     readonly files:
       | readonly { readonly path: string; readonly records: readonly UsageRecord[] }[]
       | null;
+    /** Read failure detail when `files` is null for a location that exists. */
+    readonly failure: string | null;
   }
+
+  /**
+   * Reads one OpenCode database, reusing the cached records when its
+   * fingerprint is unchanged.
+   *
+   * Message rows complete in place after creation, so unlike transcript files
+   * there is no append position to resume from: any change re-reads the whole
+   * table, and the memoised records make the unchanged case free.
+   */
+  const readOpencodeDbRecords = (
+    dbPath: string,
+    fingerprint: OpencodeDbFingerprint,
+  ): Effect.Effect<readonly UsageRecord[] | null> =>
+    Effect.gen(function* () {
+      const cached = fileCache.get(dbPath);
+      if (
+        cached &&
+        cached.provider === "opencode" &&
+        cached.size === fingerprint.size &&
+        cached.mtimeMs === fingerprint.mtimeMs
+      ) {
+        return cached.tailRecords.length === 0
+          ? cached.records
+          : [...cached.records, ...cached.tailRecords];
+      }
+
+      const rows = yield* Effect.promise(() => readOpencodeMessageRecords(dbPath));
+      // A read failure is not an empty database: caching it under this
+      // fingerprint would silently drop the database's usage until it changes.
+      if (rows === null) return null;
+
+      const seen = new Set<string>();
+      const records = dedupeWithinFile(rows, seen);
+
+      const position: TranscriptParsePosition = {
+        resumeOffset: 0,
+        guardLength: 0,
+        guardHash: 0,
+        codexState: null,
+      };
+      fileCache.set(dbPath, {
+        size: fingerprint.size,
+        mtimeMs: fingerprint.mtimeMs,
+        provider: "opencode",
+        records,
+        tailRecords: [],
+        position,
+      });
+      cacheDirty = true;
+      return records;
+    });
 
   const collectDirs = Effect.fn("UsageService.collectDirs")(function* (
     windowStartMs: number,
@@ -469,13 +543,42 @@ export const make = Effect.gen(function* () {
       Effect.provideService(Path.Path, path),
     );
     const scanned: ScannedDir[] = [];
-    for (const { provider, dir, fileName } of dirs) {
+    for (const { provider, dir, fileName, dbFileName } of dirs) {
       const volumeId = yield* Effect.promise(() => readDirectoryVolumeId(dir));
+      if (dbFileName !== undefined) {
+        const dbPath = path.join(dir, dbFileName);
+        const fingerprint = yield* Effect.promise(() => readOpencodeDbFingerprint(dbPath));
+        if (fingerprint === null) {
+          scanned.push({ provider, dir, volumeId, files: null, failure: null });
+          continue;
+        }
+        const records = yield* readOpencodeDbRecords(dbPath, fingerprint);
+        if (records === null) {
+          scanned.push({
+            provider,
+            dir,
+            volumeId,
+            files: null,
+            failure: isOpencodeSqliteAvailable()
+              ? `Could not read the OpenCode database at '${dbPath}'.`
+              : "OpenCode usage needs Node.js with built-in SQLite support (Node 24+, or NODE_OPTIONS=--experimental-sqlite on Node 22).",
+          });
+          continue;
+        }
+        scanned.push({
+          provider,
+          dir,
+          volumeId,
+          files: [{ path: dbPath, records }],
+          failure: null,
+        });
+        continue;
+      }
       const exists = yield* fileSystem
         .exists(dir)
         .pipe(Effect.catchCause(() => Effect.succeed(false)));
       if (!exists) {
-        scanned.push({ provider, dir, volumeId, files: null });
+        scanned.push({ provider, dir, volumeId, files: null, failure: null });
         continue;
       }
       const files = yield* Effect.promise(() =>
@@ -486,7 +589,7 @@ export const make = Effect.gen(function* () {
         const records = yield* readFileRecords(file.path, file.size, file.mtimeMs, provider);
         parsedFiles.push({ path: file.path, records });
       }
-      scanned.push({ provider, dir, volumeId, files: parsedFiles });
+      scanned.push({ provider, dir, volumeId, files: parsedFiles, failure: null });
     }
     return scanned;
   });
@@ -562,16 +665,16 @@ export const make = Effect.gen(function* () {
     const livePaths = new Set<string>();
     const walkedRoots: string[] = [];
 
-    for (const { provider, dir, volumeId, files } of scannedDirs) {
+    for (const { provider, dir, volumeId, files, failure } of scannedDirs) {
       if (files === null) {
         sources.push({
           fingerprint: { hostId, provider, resolvedHomePath: dir, volumeId },
-          status: "missing",
+          status: failure === null ? "missing" : "failed",
           scannedFiles: 0,
           skippedFiles: 0,
           malformedRecords: 0,
           distinctSessions: 0,
-          message: "No transcript directory on this environment.",
+          message: failure ?? "No transcript directory on this environment.",
         });
         continue;
       }
