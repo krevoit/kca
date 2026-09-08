@@ -512,7 +512,8 @@ describe("UsageService", () => {
       });
       assert.strictEqual(ratesFetches, 2);
       assert.strictEqual(refreshed.status, "fresh");
-      assert.strictEqual(refreshed.knownModels, 1);
+      // The fetched model plus the four built-in Muse Spark rates.
+      assert.strictEqual(refreshed.knownModels, 5);
     }).pipe(Effect.scoped, Effect.provide(TestClock.layer())),
   );
 

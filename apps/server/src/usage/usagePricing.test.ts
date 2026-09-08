@@ -1,11 +1,13 @@
 import { describe, expect, it } from "@effect/vitest";
 
 import {
+  builtinRateTable,
   cacheSavingsUsd,
   createOverrideRateTable,
   lookupRate,
   parseRateTable,
   priceUsage,
+  withBuiltinRates,
 } from "./usagePricing.ts";
 
 const rate = (input: number, cacheRead?: number) => ({
@@ -129,5 +131,30 @@ describe("usage pricing", () => {
     expect(lookupRate(table, "provider-a/example-model")?.inputCostPerToken).toBe(1);
     expect(lookupRate(table, "provider-b/example-model")?.inputCostPerToken).toBe(3);
     expect(lookupRate(table, "example-model")).toBeNull();
+  });
+
+  it("prices contributor-tier Muse Spark models at API rates", () => {
+    const table = withBuiltinRates(parseRateTable({}));
+
+    // 1M tokens each at $0.10 in / $0.20 out / $0.002 cached / $0.10 creation.
+    const priced = priceUsage(table, "muse-spark-1.3-contributor", totals, null);
+    expect(priced.costSource).toBe("modelPriced");
+    expect(priced.costUsd).toBeCloseTo(0.1 + 0.002 + 0.1 + 0.2, 12);
+    expect(priceUsage(table, "muse-spark-1.2-contributor", totals, null)?.costSource).toBe(
+      "modelPriced",
+    );
+    expect(cacheSavingsUsd(table, "muse-spark-1.3-contributor", totals)).toBeCloseTo(
+      1_000_000 * ((0.1 - 0.002) / 1_000_000),
+      12,
+    );
+  });
+
+  it("lets fetched rates win over built-in ones", () => {
+    const table = withBuiltinRates(parseRateTable({ "muse-spark-1.3-contributor": rate(7) }));
+
+    expect(lookupRate(table, "muse-spark-1.3-contributor")?.inputCostPerToken).toBe(7);
+    expect(builtinRateTable().get("muse-spark-1.3-contributor")?.inputCostPerToken).toBe(
+      0.1 / 1_000_000,
+    );
   });
 });

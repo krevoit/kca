@@ -123,6 +123,59 @@ function sameRate(a: ModelRate, b: ModelRate): boolean {
   );
 }
 
+/**
+ * Built-in rates for paid models the LiteLLM table does not carry (yet).
+ *
+ * Meta's Muse Spark Contributor tier (`*-contributor` model IDs, served
+ * through providers like OpenCode): $0.10 input / $0.20 output / $0.002 cached
+ * input per million tokens. The standard tier: $1.25 / $4.25 / $0.15. Cache
+ * creation is unpublished, so it prices at the input rate per the codebase
+ * convention. Rates verified September 2026 against Meta's Model API pricing.
+ *
+ * These sit UNDER the fetched table: if LiteLLM ever lists the same model,
+ * its entry wins. User price overrides still win over everything.
+ */
+const BUILTIN_RATES_PER_MILLION: ReadonlyArray<{
+  readonly models: ReadonlyArray<string>;
+  readonly input: number;
+  readonly output: number;
+  readonly cacheRead: number;
+}> = [
+  {
+    models: ["muse-spark-1.2-contributor", "muse-spark-1.3-contributor"],
+    input: 0.1,
+    output: 0.2,
+    cacheRead: 0.002,
+  },
+  {
+    models: ["muse-spark-1.2", "muse-spark-1.3"],
+    input: 1.25,
+    output: 4.25,
+    cacheRead: 0.15,
+  },
+];
+
+export function builtinRateTable(): RateTable {
+  const table = new Map<string, ModelRate>();
+  for (const entry of BUILTIN_RATES_PER_MILLION) {
+    for (const model of entry.models) {
+      table.set(model, {
+        inputCostPerToken: entry.input / 1_000_000,
+        outputCostPerToken: entry.output / 1_000_000,
+        cacheReadCostPerToken: entry.cacheRead / 1_000_000,
+        // Unpublished: price cache creation at the input rate.
+        cacheCreationCostPerToken: entry.input / 1_000_000,
+      });
+    }
+  }
+  return table;
+}
+
+/** Layers the built-in rates under a fetched table without mutating either. */
+export function withBuiltinRates(table: RateTable): RateTable {
+  return new Map([...builtinRateTable(), ...table]);
+}
+
 function normalizeRateKey(model: string): string {
   return model.trim().toLowerCase();
 }

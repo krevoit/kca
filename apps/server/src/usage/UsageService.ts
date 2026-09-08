@@ -49,7 +49,13 @@ import * as ServerSettings from "../serverSettings.ts";
 import { resolveClaudeHomePath } from "../provider/Drivers/ClaudeHome.ts";
 import { resolveCodexHomeLayout } from "../provider/Drivers/CodexHomeLayout.ts";
 import { UsageAggregator } from "./usageAggregation.ts";
-import { createOverrideRateTable, parseRateTable, type RateTable } from "./usagePricing.ts";
+import {
+  builtinRateTable,
+  createOverrideRateTable,
+  parseRateTable,
+  withBuiltinRates,
+  type RateTable,
+} from "./usagePricing.ts";
 import {
   listTranscriptFiles,
   readDirectoryVolumeId,
@@ -158,7 +164,10 @@ export const make = Effect.gen(function* () {
 
   const ratesCachePath = path.join(config.stateDir, "usage-model-rates.json");
   const scanCachePath = path.join(config.stateDir, "usage-scan-cache.json");
-  let rates: RateTable = new Map();
+  // Built-in rates apply from the first scan, even before any LiteLLM fetch
+  // succeeds. Fetched tables merge over them at adoption time.
+  let rates: RateTable = builtinRateTable();
+  let hasFetchedRates = false;
   let ratesFetchedAtMs: number | null = null;
   let ratesStatus: UsagePricing["status"] = "unavailable";
   // One fetch at a time. A burst of refreshes from several clients waits on
@@ -192,7 +201,8 @@ export const make = Effect.gen(function* () {
       if (fromDisk !== null) {
         const parsed = parseRateTable(fromDisk.document);
         if (parsed.size > 0) {
-          rates = parsed;
+          rates = withBuiltinRates(parsed);
+          hasFetchedRates = true;
           ratesFetchedAtMs = fromDisk.fetchedAtMs;
           ratesStatus = "cached";
           if (now - fromDisk.fetchedAtMs < maxAgeMs) return;
@@ -208,15 +218,17 @@ export const make = Effect.gen(function* () {
     );
     if (fetched === null) {
       // The refresh failed; whatever we are serving is now past its TTL and
-      // must not keep claiming to be fresh.
-      if (rates.size > 0) ratesStatus = "cached";
+      // must not keep claiming to be fresh. Built-in-only rates are not a
+      // cache of anything fetched, so the status stays unavailable for them.
+      if (hasFetchedRates && rates.size > 0) ratesStatus = "cached";
       return;
     }
 
     const parsed = parseRateTable(fetched);
     if (parsed.size === 0) return;
 
-    rates = parsed;
+    rates = withBuiltinRates(parsed);
+    hasFetchedRates = true;
     ratesFetchedAtMs = now;
     ratesStatus = "fresh";
 

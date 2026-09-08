@@ -6,8 +6,22 @@ import {
   formatDateTimeShort,
   formatHourShort,
   formatRelativeHourShort,
+  formatUsd,
   makeWindow,
 } from "./usageFormat.ts";
+
+describe("formatUsd", () => {
+  it("renders whole dollars and cents with two decimals", () => {
+    expect(formatUsd(12.5)).toBe("$12.50");
+    expect(formatUsd(0)).toBe("$0.00");
+  });
+
+  it("keeps sub-cent spend visible instead of rounding to zero", () => {
+    expect(formatUsd(0.0021)).toBe("$0.0021");
+    // Below four-decimal precision there is nothing honest left to show.
+    expect(formatUsd(0.00002)).toBe("$0.00");
+  });
+});
 
 describe("hourly usage formatting", () => {
   it("enumerates 24 fixed buckets across a rolling window", () => {

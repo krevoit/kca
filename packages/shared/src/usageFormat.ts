@@ -13,9 +13,21 @@ const CURRENCY = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
+const SMALL_CURRENCY = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 4,
+});
+
 const INTEGER = new Intl.NumberFormat("en-US");
 
+/**
+ * Costs under a cent keep up to four decimals so real-but-tiny model spend
+ * (a $0.002 turn) does not render as $0.00 next to genuinely unpriced rows.
+ */
 export function formatUsd(value: number): string {
+  if (value !== 0 && Math.abs(value) < 0.01) return SMALL_CURRENCY.format(value);
   return CURRENCY.format(value);
 }
 
