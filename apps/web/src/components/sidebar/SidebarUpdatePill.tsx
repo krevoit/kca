@@ -14,6 +14,7 @@ import {
   getDesktopUpdateActionError,
   getDesktopUpdateButtonTooltip,
   getDesktopUpdateInstallConfirmationMessage,
+  getDesktopUpdateReleaseUrl,
   isDesktopUpdateButtonDisabled,
   resolveDesktopUpdateButtonAction,
   shouldShowArm64IntelBuildWarning,
@@ -180,6 +181,25 @@ function SidebarUpdateControl() {
 
     setIsActionPending(true);
 
+    // Unsigned builds (and apps running outside /Applications) cannot
+    // Squirrel-install on macOS. When install fails, offer the release page
+    // for the downloaded version so the failure recovers in one click.
+    const manualDownloadUrl = getDesktopUpdateReleaseUrl(
+      state.downloadedVersion ?? state.availableVersion,
+    );
+    const openManualDownload = () => {
+      if (!manualDownloadUrl) return;
+      void bridge.openExternal(manualDownloadUrl).catch(() => {
+        toastManager.add(
+          stackedThreadToast({
+            type: "error",
+            title: "Could not open download page",
+            description: "Grab the new version from the KCA releases page manually.",
+          }),
+        );
+      });
+    };
+
     if (action === "download") {
       void bridge
         .downloadUpdate()
@@ -243,6 +263,14 @@ function SidebarUpdateControl() {
               type: "error",
               title: "Could not install update",
               description: actionError,
+              ...(manualDownloadUrl
+                ? {
+                    actionProps: {
+                      children: "Download manually",
+                      onClick: openManualDownload,
+                    },
+                  }
+                : {}),
             }),
           );
         })
@@ -252,6 +280,14 @@ function SidebarUpdateControl() {
               type: "error",
               title: "Could not install update",
               description: error instanceof Error ? error.message : "An unexpected error occurred.",
+              ...(manualDownloadUrl
+                ? {
+                    actionProps: {
+                      children: "Download manually",
+                      onClick: openManualDownload,
+                    },
+                  }
+                : {}),
             }),
           );
         })
