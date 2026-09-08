@@ -21,9 +21,11 @@ RUN corepack enable
 WORKDIR /app
 
 # Install the Vite+ toolchain the repo's scripts expect (provides `vp`;
-# `vp pm` forwards to the underlying pnpm).
+# `vp pm` forwards to the underlying pnpm). The installer puts the binary in
+# ~/.local/share/vite-plus/bin and only amends shell rc files, so extend PATH
+# explicitly for non-interactive RUN steps.
 RUN curl -fsSL https://vite.plus | bash
-ENV PATH="${PATH}:/root/.local/bin"
+ENV PATH="${PATH}:/root/.local/share/vite-plus/bin"
 RUN which vp && vp --version
 
 COPY . .
