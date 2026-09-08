@@ -1,4 +1,4 @@
-# Updating T3 Code
+# Updating KCA
 
 The app you use and the server running your agents can be on different machines.
 When a server is behind your web or desktop app, an update notice appears in the
@@ -31,20 +31,25 @@ The offered action depends on how the server runs:
 | **Update the desktop app** | Update the desktop app on the machine running the server, then reopen it if needed.                                                                                                             |
 | **Copy update command**    | Stop the command-line server on its host and relaunch with the copied command, keeping your usual startup options.                                                                              |
 
-For a background service, run the matching version's CLI on the host:
+For a background service, update your checkout to the matching version on the
+host, then run its CLI:
 
 ```sh
-npx t3@<client-version> service update
+kca service update
 ```
 
-Replace `<client-version>` with the version shown in the notice. Using
-`@latest` only resolves the mismatch if your client is on that release. An older
+The notice names the version to match. An older
 service launcher may require this local update before it supports remote updates
-and rollback.
+and rollback. Service updates download the pinned `kca-cli` package from npm,
+which is unpublished until the one-time publish described in the
+[README](../../README.md#docs--development) happens — until then, prefer
+foreground servers or Docker on hosts you manage. There is no npm channel:
+the `kca` command always comes from your local checkout (or the Docker image /
+desktop bundle).
 
-For a foreground server, the copied command is `npx t3@<client-version>`. Add
-`serve` if you normally run without a browser, and preserve options such as
-`--host` or `--tailscale-serve`. See
+For a foreground server, stop it and relaunch from the updated checkout with
+your usual options (`kca serve`, preserving flags such as `--host` or
+`--tailscale-serve`). See
 [background services](./background-service.md) for service management.
 
 ## If an update fails

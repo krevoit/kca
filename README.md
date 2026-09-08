@@ -131,7 +131,7 @@ sudo systemctl daemon-reload && sudo systemctl enable --now kca
 published too):
 
 ```bash
-sudo apt install ./T3-Code-<version>-amd64.deb
+sudo apt install ./KCA-<version>-amd64.deb
 ```
 
 ### 2.2 Pair it with T3 Connect (remote access without open ports)
@@ -143,24 +143,24 @@ On the headless machine, with the server installed (B) or its checkout handy:
 
 ```bash
 # Log the server environment in via the relay (headless-friendly).
-t3 connect login --headless
+kca connect login --headless
 # Check link + tunnel status any time.
-t3 connect status
+kca connect status
 ```
 
 For a direct (no-relay) link instead — same LAN, Tailscale, or SSH-forwarded
 port — mint a one-time pairing URL and open it on the other device:
 
 ```bash
-t3 serve --host 0.0.0.0 --port 8080
-t3 pair
+kca serve --host 0.0.0.0 --port 8080
+kca pair
 ```
 
 Over Tailscale, serve through it so the phone/browser gets HTTPS:
 
 ```bash
-t3 serve --tailscale-serve
-t3 pair --tailscale
+kca serve --tailscale-serve
+kca pair --tailscale
 ```
 
 Full matrix (LAN, Tailscale, SSH, hosted web): [`docs/user/remote-access.md`](./docs/user/remote-access.md).
@@ -174,9 +174,10 @@ machines simply contribute nothing until they reconnect.
 
 ## 3. macOS (Apple Silicon)
 
-1. Download `T3-Code-<version>-arm64.dmg` from the
+1. Download `KCA-<version>-arm64.dmg` from the
    [releases page](https://github.com/krevoit/kca/releases).
-2. Open it, drag the app into Applications.
+2. Open it, drag the app into Applications (it must live in /Applications —
+   running it from the disk image breaks updates).
 3. These builds are **unsigned** (no Apple Developer certificate in the fork),
    so the first launch is blocked by Gatekeeper. Right-click the app →
    **Open** → **Open**, or clear the quarantine flag:
@@ -185,7 +186,9 @@ machines simply contribute nothing until they reconnect.
    xattr -cr "/Applications/KCA (Alpha).app"
    ```
 
-4. Updates install themselves from `krevoit/kca` releases — nothing to do.
+4. macOS builds are **unsigned**, so in-place auto-update cannot install: when
+   the app offers an update, use the **Download manually** button to grab the
+   new DMG from the release page and replace the app yourself.
 
 Intel Macs are not shipped (no CI runners for them); the Linux AppImage/`.deb`
 and the Docker image cover the rest.
@@ -200,6 +203,10 @@ and the Docker image cover the rest.
   The Release workflow builds macOS arm64 DMG + Linux AppImage/`.deb` on
   standard GitHub runners; npm/Vercel/AUR/finalize steps are opt-in via
   `KCA_PUBLISH_NPM` / `KCA_DEPLOY_WEB` / `KCA_PUBLISH_AUR` / `KCA_FINALIZE` repo variables.
+- The npm package is `kca-cli` (bin: `kca`). It is unpublished: background-service
+  install, remote self-update, desktop SSH to fresh hosts, and `npx kca-cli` all
+  need it. To publish, set `KCA_PUBLISH_NPM=true` and run the release workflow —
+  `kca-cli` is currently unclaimed on npm.
 - Building from source: install `vp` (`curl -fsSL https://vite.plus | bash`),
   then `vp i`. Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a PR.
 
