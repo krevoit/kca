@@ -78,7 +78,7 @@ import {
 } from "../../lib/diffRendering";
 import { PREFERRED_HIGHLIGHTER } from "../../lib/syntaxHighlighting";
 import ChatMarkdown, { ChatMarkdownAssetImage } from "../ChatMarkdown";
-import { T3Wordmark } from "../T3Wordmark";
+import { KCAWordmark } from "../KCAWordmark";
 import {
   BotIcon,
   BrainIcon,
@@ -2932,7 +2932,7 @@ function WorkEntryIcon({ name, className }: { name: WorkEntryIconName; className
     case "computer":
       return <ComputerUseAppIcon className={className} />;
     case "t3-code":
-      return <T3Wordmark className={className} aria-hidden />;
+      return <KCAWordmark className={className} aria-hidden />;
     case "check":
       return <CheckIcon className={className} aria-hidden />;
     case "circle-alert":

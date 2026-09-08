@@ -63,7 +63,7 @@ import { getDriverOption } from "../settings/providerDriverMeta";
 import { TerminalViewport } from "../ThreadTerminalDrawer";
 import { CloudEnvironmentConnectRows } from "../cloud/CloudEnvironmentConnectList";
 import { ClaudeAI, OpenAI } from "../Icons";
-import { T3Wordmark } from "../T3Wordmark";
+import { KCAWordmark } from "../KCAWordmark";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
@@ -189,11 +189,11 @@ export function WelcomeWizard({
         showCloseButton={false}
         initialFocus={() => document.getElementById("onboarding-pairing-url") ?? true}
       >
-        <DialogTitle className="sr-only">Set up T3 Code</DialogTitle>
+        <DialogTitle className="sr-only">Set up KCA Code</DialogTitle>
         <div className="flex min-h-0 flex-col">
           <DialogHeader className="gap-4">
-            <div className="flex items-baseline gap-1.5" role="img" aria-label="T3 Code">
-              <T3Wordmark className="h-4 w-auto shrink-0" aria-hidden />
+            <div className="flex items-baseline gap-1.5" role="img" aria-label="KCA Code">
+              <KCAWordmark className="shrink-0 text-[1.4rem]" aria-hidden />
               <span className="text-[1.4rem] font-medium tracking-tight text-muted-foreground">
                 Code
               </span>
