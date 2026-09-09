@@ -49,4 +49,4 @@ export interface ProviderInstanceRegistryMutatorShape {
 export class ProviderInstanceRegistryMutator extends Context.Service<
   ProviderInstanceRegistryMutator,
   ProviderInstanceRegistryMutatorShape
->()("kca-cli/provider/Services/ProviderInstanceRegistryMutator") {}
+>()("kca-code/provider/Services/ProviderInstanceRegistryMutator") {}

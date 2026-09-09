@@ -103,5 +103,5 @@ export class ProjectionPendingApprovalRepository extends Context.Service<
   ProjectionPendingApprovalRepository,
   ProjectionPendingApprovalRepositoryShape
 >()(
-  "kca-cli/persistence/Services/ProjectionPendingApprovals/ProjectionPendingApprovalRepository",
+  "kca-code/persistence/Services/ProjectionPendingApprovals/ProjectionPendingApprovalRepository",
 ) {}

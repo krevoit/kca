@@ -43,7 +43,7 @@ export class CodexResetCreditCoordinator extends Context.Service<
       consume: (idempotencyKey: string) => Effect.Effect<ProviderConsumeResetCreditOutcome, E, R>,
     ) => Effect.Effect<ProviderConsumeResetCreditOutcome, E | PlatformError.PlatformError, R>;
   }
->()("kca-cli/provider/Layers/codexResetCredit/CodexResetCreditCoordinator") {}
+>()("kca-code/provider/Layers/codexResetCredit/CodexResetCreditCoordinator") {}
 
 export const make = Effect.gen(function* () {
   const crypto = yield* Crypto.Crypto;

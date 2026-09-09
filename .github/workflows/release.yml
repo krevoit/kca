@@ -359,7 +359,7 @@ jobs:
           cache: true
           run-install: |
             args:
-              - --filter=kca-cli...
+              - --filter=kca-code...
 
       - name: Build node-pty linux-x64 prebuild
         shell: bash
@@ -487,7 +487,7 @@ jobs:
       - name: Install desktop dependencies
         env:
           pnpm_config_cache_dir: ${{ runner.temp }}/pnpm-metadata
-        run: vp install --filter=@t3tools/desktop... --filter=kca-cli... --filter=@t3tools/scripts...
+        run: vp install --filter=@t3tools/desktop... --filter=kca-code... --filter=@t3tools/scripts...
 
       - name: Cache resource monitor
         id: resource_monitor_cache
@@ -789,7 +789,7 @@ jobs:
 
   publish_cli:
     name: Publish CLI to npm
-    # KCA fork: opt-in. Publishes the `kca-cli` package (bin: `kca`), so this
+    # KCA fork: opt-in. Publishes the `kca-code` package (bin: `kca`), so this
     # stays skipped unless the fork sets the KCA_PUBLISH_NPM repo variable to
     # 'true' (and has claimed the name on npm).
     needs: [preflight, relay_public_config, quality, build]
@@ -822,7 +822,7 @@ jobs:
           cache: true
           run-install: |
             args:
-              - --filter=kca-cli...
+              - --filter=kca-code...
               - --filter=@t3tools/web...
               - --filter=@t3tools/scripts...
 
@@ -846,7 +846,7 @@ jobs:
       # The t3 build task depends on @t3tools/web#build, so the web client is
       # built (once) as part of this step.
       - name: Build CLI package
-        run: vp run --filter kca-cli build
+        run: vp run --filter kca-code build
 
       - name: Download resource monitors
         uses: actions/download-artifact@v8

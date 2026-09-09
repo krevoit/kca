@@ -47,7 +47,7 @@ export class T3ProjectFileLoader extends Context.Service<
      */
     readonly load: (workspaceRoot: string) => Effect.Effect<Option.Option<T3ProjectFile>>;
   }
->()("kca-cli/project/T3ProjectFileLoader") {}
+>()("kca-code/project/T3ProjectFileLoader") {}
 
 const logT3ProjectFileLoadError = (error: T3ProjectFileLoadError) =>
   Effect.logWarning(error).pipe(

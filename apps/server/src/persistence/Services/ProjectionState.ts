@@ -68,4 +68,4 @@ export interface ProjectionStateRepositoryShape {
 export class ProjectionStateRepository extends Context.Service<
   ProjectionStateRepository,
   ProjectionStateRepositoryShape
->()("kca-cli/persistence/Services/ProjectionState/ProjectionStateRepository") {}
+>()("kca-code/persistence/Services/ProjectionState/ProjectionStateRepository") {}

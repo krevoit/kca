@@ -43,7 +43,7 @@ RUN node apps/server/scripts/cli.ts build --verbose
 # 11 line the toolchain vendors; `--legacy` keeps `deploy` working without
 # injected workspace deps.
 RUN pnpm --version \
-  && pnpm --filter kca-cli deploy --prod --legacy /deploy
+  && pnpm --filter kca-code deploy --prod --legacy /deploy
 
 # pnpm deploy follows `files: ["dist"]`, so the bundled client comes along.
 # Fail loudly here (not at container start) if it did not.

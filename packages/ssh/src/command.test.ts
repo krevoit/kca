@@ -99,21 +99,21 @@ describe("ssh command", () => {
     }),
   );
 
-  it.effect("resolves the remote kca-cli package spec from the desktop release channel", () =>
+  it.effect("resolves the remote kca-code package spec from the desktop release channel", () =>
     Effect.sync(() => {
       assert.equal(
         resolveRemoteT3CliPackageSpec({
           appVersion: "0.0.17",
           updateChannel: "latest",
         }),
-        "kca-cli@0.0.17",
+        "kca-code@0.0.17",
       );
       assert.equal(
         resolveRemoteT3CliPackageSpec({
           appVersion: "0.0.17-nightly.20260415.44",
           updateChannel: "nightly",
         }),
-        "kca-cli@0.0.17-nightly.20260415.44",
+        "kca-code@0.0.17-nightly.20260415.44",
       );
       assert.equal(
         resolveRemoteT3CliPackageSpec({
@@ -121,7 +121,7 @@ describe("ssh command", () => {
           updateChannel: "nightly",
           isDevelopment: true,
         }),
-        "kca-cli@nightly",
+        "kca-code@nightly",
       );
       assert.equal(
         resolveRemoteT3CliPackageSpec({
@@ -129,7 +129,7 @@ describe("ssh command", () => {
           updateChannel: "latest",
           isDevelopment: true,
         }),
-        "kca-cli@nightly",
+        "kca-code@nightly",
       );
     }),
   );

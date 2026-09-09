@@ -371,12 +371,12 @@ export function resolveRemoteT3CliPackageSpec(input: {
 }): string {
   const appVersion = input.appVersion.trim();
   if (!input.isDevelopment && PUBLISHABLE_KCA_VERSION_PATTERN.test(appVersion)) {
-    return `kca-cli@${appVersion}`;
+    return `kca-code@${appVersion}`;
   }
 
   if (input.isDevelopment) {
-    return "kca-cli@nightly";
+    return "kca-code@nightly";
   }
 
-  return input.updateChannel === "nightly" ? "kca-cli@nightly" : "kca-cli@latest";
+  return input.updateChannel === "nightly" ? "kca-code@nightly" : "kca-code@latest";
 }

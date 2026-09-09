@@ -490,7 +490,7 @@ export class BootService extends Context.Service<
     readonly uninstall: Effect.Effect<boolean, BootServiceError>;
     readonly status: Effect.Effect<BootServiceStatus, BootServiceError>;
   }
->()("kca-cli/cloud/bootService") {}
+>()("kca-code/cloud/bootService") {}
 
 export interface BootServiceHost {
   readonly execPath: string;

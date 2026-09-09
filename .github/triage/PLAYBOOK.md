@@ -51,7 +51,7 @@ Diagnosis grounded in source beats guessing.
 First establish the shape of the install, because the same symptom points at
 different code depending on it:
 
-- How is KCA running on this machine: `npx kca-cli serve` in a terminal, the
+- How is KCA running on this machine: `npx kca-code serve` in a terminal, the
   background service, or the desktop app?
 - Which surface is the user connecting from: the website (app.t3.codes), the
   desktop app against a local server, the desktop app against a remote server,

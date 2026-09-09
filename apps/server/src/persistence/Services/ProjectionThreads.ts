@@ -115,4 +115,4 @@ export interface ProjectionThreadRepositoryShape {
 export class ProjectionThreadRepository extends Context.Service<
   ProjectionThreadRepository,
   ProjectionThreadRepositoryShape
->()("kca-cli/persistence/Services/ProjectionThreads/ProjectionThreadRepository") {}
+>()("kca-code/persistence/Services/ProjectionThreads/ProjectionThreadRepository") {}

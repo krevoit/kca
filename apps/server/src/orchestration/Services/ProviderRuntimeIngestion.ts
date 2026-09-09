@@ -38,4 +38,4 @@ export interface ProviderRuntimeIngestionShape {
 export class ProviderRuntimeIngestionService extends Context.Service<
   ProviderRuntimeIngestionService,
   ProviderRuntimeIngestionShape
->()("kca-cli/orchestration/Services/ProviderRuntimeIngestion/ProviderRuntimeIngestionService") {}
+>()("kca-code/orchestration/Services/ProviderRuntimeIngestion/ProviderRuntimeIngestionService") {}

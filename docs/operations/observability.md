@@ -85,7 +85,7 @@ You do not need any extra env vars. Just run the app normally and inspect `serve
 Examples:
 
 ```bash
-npx kca-cli
+npx kca-code
 ```
 
 ```bash
@@ -136,7 +136,7 @@ export T3CODE_TRACE_TIMING_ENABLED=true
 CLI:
 
 ```bash
-npx kca-cli
+npx kca-code
 ```
 
 Monorepo web/server dev:

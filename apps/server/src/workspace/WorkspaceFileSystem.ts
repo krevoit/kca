@@ -130,7 +130,7 @@ export class WorkspaceFileSystem extends Context.Service<
       WorkspaceFileSystemError | WorkspacePaths.WorkspacePathOutsideRootError
     >;
   }
->()("kca-cli/workspace/WorkspaceFileSystem") {}
+>()("kca-code/workspace/WorkspaceFileSystem") {}
 
 export const make = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;

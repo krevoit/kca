@@ -37,4 +37,4 @@ export interface ThreadDeletionReactorShape {
 export class ThreadDeletionReactor extends Context.Service<
   ThreadDeletionReactor,
   ThreadDeletionReactorShape
->()("kca-cli/orchestration/Services/ThreadDeletionReactor") {}
+>()("kca-code/orchestration/Services/ThreadDeletionReactor") {}

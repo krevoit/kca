@@ -167,4 +167,4 @@ export interface ProjectionTurnRepositoryShape {
 export class ProjectionTurnRepository extends Context.Service<
   ProjectionTurnRepository,
   ProjectionTurnRepositoryShape
->()("kca-cli/persistence/Services/ProjectionTurns/ProjectionTurnRepository") {}
+>()("kca-code/persistence/Services/ProjectionTurns/ProjectionTurnRepository") {}

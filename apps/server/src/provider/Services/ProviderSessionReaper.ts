@@ -12,4 +12,4 @@ export interface ProviderSessionReaperShape {
 export class ProviderSessionReaper extends Context.Service<
   ProviderSessionReaper,
   ProviderSessionReaperShape
->()("kca-cli/provider/Services/ProviderSessionReaper") {}
+>()("kca-code/provider/Services/ProviderSessionReaper") {}

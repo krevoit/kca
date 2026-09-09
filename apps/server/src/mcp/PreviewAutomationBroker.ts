@@ -60,7 +60,7 @@ export class PreviewAutomationBroker extends Context.Service<
       request: PreviewAutomationInvokeInput,
     ) => Effect.Effect<A, PreviewAutomationError>;
   }
->()("kca-cli/mcp/PreviewAutomationBroker") {}
+>()("kca-code/mcp/PreviewAutomationBroker") {}
 
 interface ClientConnection {
   readonly clientId: string;

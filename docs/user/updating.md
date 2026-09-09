@@ -40,7 +40,7 @@ kca service update
 
 The notice names the version to match. An older
 service launcher may require this local update before it supports remote updates
-and rollback. Service updates download the pinned `kca-cli` package from npm,
+and rollback. Service updates download the pinned `kca-code` package from npm,
 which is unpublished until the one-time publish described in the
 [README](../../README.md#docs--development) happens — until then, prefer
 foreground servers or Docker on hosts you manage. There is no npm channel:

@@ -190,7 +190,7 @@ const createVpPmPublishArgs = (config: PublishCommandConfig): ReadonlyArray<stri
   const args = [
     "publish",
     "--filter",
-    "kca-cli",
+    "kca-code",
     "--access",
     config.access,
     "--tag",

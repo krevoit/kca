@@ -105,7 +105,7 @@ export class TextGeneration extends Context.Service<
       input: ThreadTitleGenerationInput,
     ) => Effect.Effect<ThreadTitleGenerationResult, TextGenerationError>;
   }
->()("kca-cli/textGeneration/TextGeneration") {}
+>()("kca-code/textGeneration/TextGeneration") {}
 
 type TextGenerationOp =
   | "generateCommitMessage"

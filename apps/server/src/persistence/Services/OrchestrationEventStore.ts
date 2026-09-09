@@ -109,4 +109,4 @@ export interface OrchestrationEventStoreShape {
 export class OrchestrationEventStore extends Context.Service<
   OrchestrationEventStore,
   OrchestrationEventStoreShape
->()("kca-cli/persistence/Services/OrchestrationEventStore") {}
+>()("kca-code/persistence/Services/OrchestrationEventStore") {}

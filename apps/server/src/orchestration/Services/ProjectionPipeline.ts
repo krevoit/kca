@@ -48,4 +48,4 @@ export interface OrchestrationProjectionPipelineShape {
 export class OrchestrationProjectionPipeline extends Context.Service<
   OrchestrationProjectionPipeline,
   OrchestrationProjectionPipelineShape
->()("kca-cli/orchestration/Services/ProjectionPipeline/OrchestrationProjectionPipeline") {}
+>()("kca-code/orchestration/Services/ProjectionPipeline/OrchestrationProjectionPipeline") {}

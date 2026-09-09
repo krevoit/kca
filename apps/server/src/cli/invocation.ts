@@ -37,19 +37,19 @@ function detectCliRunner(entryPath: string): CliRunner | null {
 }
 
 /**
- * The `kca-cli` package spec to suggest. The literal spec the user typed (e.g.
- * `kca-cli@nightly`) is resolved away before our process starts, so re-derive it
+ * The `kca-code` package spec to suggest. The literal spec the user typed (e.g.
+ * `kca-code@nightly`) is resolved away before our process starts, so re-derive it
  * from the running version: nightly builds re-suggest the nightly channel,
  * anything else suggests the bare package.
  */
 function suggestedPackageSpec(version: string): string {
-  return version.includes("-nightly.") ? "kca-cli@nightly" : "kca-cli";
+  return version.includes("-nightly.") ? "kca-code@nightly" : "kca-code";
 }
 
 /**
  * Render a `kca <subcommand>` suggestion that matches how this process was
- * launched, so copy/pasting it actually works: `npx kca-cli connect` suggests
- * `npx kca-cli serve`, a global install suggests `kca serve`, and a nightly build
+ * launched, so copy/pasting it actually works: `npx kca-code connect` suggests
+ * `npx kca-code serve`, a global install suggests `kca serve`, and a nightly build
  * keeps the `@nightly` tag.
  */
 export function formatCliCommand(input: {

@@ -92,4 +92,4 @@ export interface ProjectionCheckpointRepositoryShape {
 export class ProjectionCheckpointRepository extends Context.Service<
   ProjectionCheckpointRepository,
   ProjectionCheckpointRepositoryShape
->()("kca-cli/persistence/Services/ProjectionCheckpoints/ProjectionCheckpointRepository") {}
+>()("kca-code/persistence/Services/ProjectionCheckpoints/ProjectionCheckpointRepository") {}

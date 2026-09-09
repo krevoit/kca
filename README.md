@@ -203,8 +203,8 @@ and the Docker image cover the rest.
   The Release workflow builds macOS arm64 DMG + Linux AppImage/`.deb` on
   standard GitHub runners; npm/Vercel/AUR/finalize steps are opt-in via
   `KCA_PUBLISH_NPM` / `KCA_DEPLOY_WEB` / `KCA_PUBLISH_AUR` / `KCA_FINALIZE` repo variables.
-- The npm package is `kca-cli` (bin: `kca`). It is unpublished: background-service
-  install, remote self-update, desktop SSH to fresh hosts, and `npx kca-cli` all
+- The npm package is `kca-code` (bin: `kca`). It is unpublished: background-service
+  install, remote self-update, desktop SSH to fresh hosts, and `npx kca-code` all
   need it. To publish, add an npm automation token as the `NPM_TOKEN` secret,
   set the `KCA_PUBLISH_NPM` repo variable to `true`, and cut a release.
 - macOS builds are unsigned until Apple signing secrets exist: `CSC_LINK` +

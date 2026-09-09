@@ -62,5 +62,5 @@ export interface RuntimeReceiptBusShape {
 }
 
 export class RuntimeReceiptBus extends Context.Service<RuntimeReceiptBus, RuntimeReceiptBusShape>()(
-  "kca-cli/orchestration/Services/RuntimeReceiptBus",
+  "kca-code/orchestration/Services/RuntimeReceiptBus",
 ) {}

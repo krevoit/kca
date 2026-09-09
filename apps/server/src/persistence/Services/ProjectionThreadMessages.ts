@@ -124,4 +124,4 @@ export interface ProjectionThreadMessageRepositoryShape {
 export class ProjectionThreadMessageRepository extends Context.Service<
   ProjectionThreadMessageRepository,
   ProjectionThreadMessageRepositoryShape
->()("kca-cli/persistence/Services/ProjectionThreadMessages/ProjectionThreadMessageRepository") {}
+>()("kca-code/persistence/Services/ProjectionThreadMessages/ProjectionThreadMessageRepository") {}

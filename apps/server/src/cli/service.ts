@@ -78,20 +78,20 @@ export function formatServiceStatus(
   ) {
     return [
       "KCA service",
-      `  Status: installed · kca-cli@${installedVersion} (newer than this kca-cli@${cliVersion} CLI)`,
+      `  Status: installed · kca-code@${installedVersion} (newer than this kca-code@${cliVersion} CLI)`,
       `  Unit: ${status.unitPath}`,
       `  Logs: ${status.logPath}`,
       ...problems,
-      `  Next: Use \`npx kca-cli@${installedVersion} service update\` to repair it, or pass \`--allow-downgrade\` explicitly.`,
+      `  Next: Use \`npx kca-code@${installedVersion} service update\` to repair it, or pass \`--allow-downgrade\` explicitly.`,
     ].join("\n");
   }
   return [
     "KCA service",
-    `  Status: ${status.current ? `installed · kca-cli@${installedVersion}` : "needs an update or repair"}`,
+    `  Status: ${status.current ? `installed · kca-code@${installedVersion}` : "needs an update or repair"}`,
     `  Unit: ${status.unitPath}`,
     `  Logs: ${status.logPath}`,
     ...problems,
-    ...(status.current ? [] : [`  Next: Run \`npx kca-cli@${cliVersion} service update\`.`]),
+    ...(status.current ? [] : [`  Next: Run \`npx kca-code@${cliVersion} service update\`.`]),
   ].join("\n");
 }
 
@@ -121,12 +121,12 @@ const serviceInstallCommand = Command.make("install", serviceReconcileFlags).pip
         const result = yield* reconcileService({ allowDowngrade: flags.allowDowngrade });
         if (!result.changed) {
           yield* Console.log(
-            `KCA service is already installed with kca-cli@${packageJson.version}.`,
+            `KCA service is already installed with kca-code@${packageJson.version}.`,
           );
           return;
         }
         yield* Console.log(
-          `${result.previouslyInstalled ? "Updated" : "Installed"} KCA service with kca-cli@${packageJson.version}.\nLogs: ${result.plan.logPath}`,
+          `${result.previouslyInstalled ? "Updated" : "Installed"} KCA service with kca-code@${packageJson.version}.\nLogs: ${result.plan.logPath}`,
         );
       }),
     ),
@@ -135,7 +135,7 @@ const serviceInstallCommand = Command.make("install", serviceReconcileFlags).pip
 
 const serviceUpdateCommand = Command.make("update", serviceReconcileFlags).pipe(
   Command.withDescription(
-    "Update or repair the background service using this CLI version. Use `npx kca-cli@latest service update` for the latest release.",
+    "Update or repair the background service using this CLI version. Use `npx kca-code@latest service update` for the latest release.",
   ),
   Command.withHandler((flags) =>
     runServiceCommand(
@@ -143,11 +143,11 @@ const serviceUpdateCommand = Command.make("update", serviceReconcileFlags).pipe(
       Effect.gen(function* () {
         const result = yield* reconcileService({ allowDowngrade: flags.allowDowngrade });
         if (!result.changed) {
-          yield* Console.log(`KCA service is already using kca-cli@${packageJson.version}.`);
+          yield* Console.log(`KCA service is already using kca-code@${packageJson.version}.`);
           return;
         }
         yield* Console.log(
-          `${result.previouslyInstalled ? "Updated" : "Installed"} KCA service with kca-cli@${packageJson.version}.\nLogs: ${result.plan.logPath}`,
+          `${result.previouslyInstalled ? "Updated" : "Installed"} KCA service with kca-code@${packageJson.version}.\nLogs: ${result.plan.logPath}`,
         );
       }),
     ),

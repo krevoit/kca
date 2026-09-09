@@ -29,4 +29,4 @@ export interface OrchestrationReactorShape {
 export class OrchestrationReactor extends Context.Service<
   OrchestrationReactor,
   OrchestrationReactorShape
->()("kca-cli/orchestration/Services/OrchestrationReactor") {}
+>()("kca-code/orchestration/Services/OrchestrationReactor") {}

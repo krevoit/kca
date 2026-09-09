@@ -1,5 +1,5 @@
 {
-  "name": "kca-cli",
+  "name": "kca-code",
   "version": "0.0.40",
   "description": "KCA headless server with bundled WebUI",
   "license": "MIT",

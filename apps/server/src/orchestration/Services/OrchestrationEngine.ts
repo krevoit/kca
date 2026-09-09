@@ -114,4 +114,4 @@ export interface OrchestrationEngineShape {
 export class OrchestrationEngineService extends Context.Service<
   OrchestrationEngineService,
   OrchestrationEngineShape
->()("kca-cli/orchestration/Services/OrchestrationEngine/OrchestrationEngineService") {}
+>()("kca-code/orchestration/Services/OrchestrationEngine/OrchestrationEngineService") {}

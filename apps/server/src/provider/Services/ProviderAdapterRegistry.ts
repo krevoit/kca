@@ -65,4 +65,4 @@ export interface ProviderAdapterRegistryShape {
 export class ProviderAdapterRegistry extends Context.Service<
   ProviderAdapterRegistry,
   ProviderAdapterRegistryShape
->()("kca-cli/provider/Services/ProviderAdapterRegistry") {}
+>()("kca-code/provider/Services/ProviderAdapterRegistry") {}

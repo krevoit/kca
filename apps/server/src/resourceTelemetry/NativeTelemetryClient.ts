@@ -209,7 +209,7 @@ export class NativeTelemetryClient extends Context.Service<
       Scope.Scope
     >;
   }
->()("kca-cli/resourceTelemetry/NativeTelemetryClient") {}
+>()("kca-code/resourceTelemetry/NativeTelemetryClient") {}
 
 interface ClientState {
   readonly status: ResourceTelemetrySourceStatus;

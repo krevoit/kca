@@ -264,4 +264,4 @@ export interface ProjectionSnapshotQueryShape {
 export class ProjectionSnapshotQuery extends Context.Service<
   ProjectionSnapshotQuery,
   ProjectionSnapshotQueryShape
->()("kca-cli/orchestration/Services/ProjectionSnapshotQuery") {}
+>()("kca-code/orchestration/Services/ProjectionSnapshotQuery") {}

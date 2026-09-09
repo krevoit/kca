@@ -39,4 +39,4 @@ export interface ProviderCommandReactorShape {
 export class ProviderCommandReactor extends Context.Service<
   ProviderCommandReactor,
   ProviderCommandReactorShape
->()("kca-cli/orchestration/Services/ProviderCommandReactor") {}
+>()("kca-code/orchestration/Services/ProviderCommandReactor") {}

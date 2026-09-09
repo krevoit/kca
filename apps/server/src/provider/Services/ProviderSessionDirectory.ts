@@ -79,4 +79,4 @@ export interface ProviderSessionDirectoryShape {
 export class ProviderSessionDirectory extends Context.Service<
   ProviderSessionDirectory,
   ProviderSessionDirectoryShape
->()("kca-cli/provider/Services/ProviderSessionDirectory") {}
+>()("kca-code/provider/Services/ProviderSessionDirectory") {}

@@ -12,7 +12,7 @@ export class EnvironmentAuthPolicy extends Context.Service<
   {
     readonly getDescriptor: () => Effect.Effect<ServerAuthDescriptor>;
   }
->()("kca-cli/auth/EnvironmentAuthPolicy") {}
+>()("kca-code/auth/EnvironmentAuthPolicy") {}
 
 export const make = Effect.gen(function* () {
   const config = yield* ServerConfig.ServerConfig;

@@ -229,8 +229,8 @@ describe("kca pair", () => {
         typeof error === "object" && error !== null && "cause" in error ? error.cause : error,
       );
       assert.include(rendered, "No running KCA server found.");
-      assert.include(rendered, "npx kca-cli serve");
-      assert.include(rendered, "npx kca-cli connect");
+      assert.include(rendered, "npx kca-code serve");
+      assert.include(rendered, "npx kca-code connect");
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 

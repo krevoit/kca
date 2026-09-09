@@ -140,5 +140,5 @@ export interface ProviderServiceShape {
  * ProviderService - Service tag for provider orchestration.
  */
 export class ProviderService extends Context.Service<ProviderService, ProviderServiceShape>()(
-  "kca-cli/provider/Services/ProviderService",
+  "kca-code/provider/Services/ProviderService",
 ) {}

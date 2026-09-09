@@ -69,5 +69,5 @@ export class OrchestrationCommandReceiptRepository extends Context.Service<
   OrchestrationCommandReceiptRepository,
   OrchestrationCommandReceiptRepositoryShape
 >()(
-  "kca-cli/persistence/Services/OrchestrationCommandReceipts/OrchestrationCommandReceiptRepository",
+  "kca-code/persistence/Services/OrchestrationCommandReceipts/OrchestrationCommandReceiptRepository",
 ) {}

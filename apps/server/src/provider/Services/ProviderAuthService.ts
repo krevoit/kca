@@ -56,4 +56,4 @@ export interface ProviderAuthServiceShape {
 export class ProviderAuthService extends Context.Service<
   ProviderAuthService,
   ProviderAuthServiceShape
->()("kca-cli/provider/Services/ProviderAuthService") {}
+>()("kca-code/provider/Services/ProviderAuthService") {}

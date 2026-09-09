@@ -23,7 +23,7 @@ checkout (or reinstall the package) first when you want a newer server. An
 older CLI refuses to replace a newer service unless you explicitly add
 `--allow-downgrade`.
 
-Service install and repair download the pinned `kca-cli` package from npm,
+Service install and repair download the pinned `kca-code` package from npm,
 which is unpublished until the one-time publish described in the
 [README](../../README.md#docs--development) happens. Until then, run the
 server from your checkout (or Docker) instead of the background service.
