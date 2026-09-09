@@ -1,3 +1,4 @@
+import type { CloudTunnelTransport } from "@t3tools/contracts";
 import { useAuth } from "@clerk/react";
 import { findErrorTraceId } from "@t3tools/client-runtime/errors";
 import {
@@ -151,7 +152,19 @@ export function useCloudLinkController() {
     return true;
   };
 
+  const updateTunnelTransport = async (tunnelTransport: CloudTunnelTransport) => {
+    const target = primaryCloudLinkState.target;
+    if (!target) return;
+    setOperationError(null);
+    const result = await updatePrimaryEnvironmentPreferences({ target, tunnelTransport });
+    if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+      reportUpdateFailure(squashAtomCommandFailure(result));
+    }
+    primaryCloudLinkState.refresh();
+  };
+
   return {
+    updateTunnelTransport,
     isSignedIn,
     linkState: primaryCloudLinkState,
     linked,

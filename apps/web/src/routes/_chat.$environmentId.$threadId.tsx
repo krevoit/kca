@@ -6,7 +6,7 @@ import { threadHasStarted } from "../components/ChatView.logic";
 import { finalizePromotedDraftThreadByRef, useComposerDraftStore } from "../composerDraftStore";
 import { resolveThreadRouteRef, resolveThreadRouteRenderState } from "../threadRoutes";
 import { resolveThreadSyncPhase } from "../threadSync";
-import { SidebarInset } from "~/components/ui/sidebar";
+import { ChatWorkspace } from "../components/chat/ChatWorkspace";
 import {
   useEnvironmentThreadRefs,
   useThreadDetail,
@@ -79,7 +79,7 @@ function ChatThreadRouteView() {
   }
 
   return (
-    <SidebarInset className="h-svh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground md:h-dvh">
+    <ChatWorkspace className="h-svh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground md:h-dvh">
       {renderState === "ready" || (renderState === "loading" && serverThreadShell !== null) ? (
         <ChatView
           environmentId={threadRef.environmentId}
@@ -88,7 +88,7 @@ function ChatThreadRouteView() {
           threadSyncPhase={threadSyncPhase}
         />
       ) : null}
-    </SidebarInset>
+    </ChatWorkspace>
   );
 }
 

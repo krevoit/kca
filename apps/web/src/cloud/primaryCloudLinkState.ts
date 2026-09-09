@@ -25,13 +25,22 @@ const primaryCloudLinkAtomRuntime = Atom.runtime(
 
 const primaryCloudLinkStateAtom = Atom.family((key: string) => {
   const target = JSON.parse(key) as CloudLinkTarget;
-  return primaryCloudLinkAtomRuntime
-    .atom(readPrimaryCloudLinkState({ target }))
-    .pipe(
-      Atom.swr({ staleTime: 5_000, revalidateOnMount: true }),
-      Atom.setIdleTTL(5 * 60_000),
-      Atom.withLabel(`primary-cloud-link:${target.environmentId}`),
-    );
+  return primaryCloudLinkAtomRuntime.atom(readPrimaryCloudLinkState({ target })).pipe(
+    Atom.swr({ staleTime: 5_000, revalidateOnMount: true }),
+    Atom.setIdleTTL(5 * 60_000),
+    Atom.transform((get, source) => {
+      const result = get(source);
+      const data = Option.getOrNull(AsyncResult.value(result));
+      if (data?.managedTunnelActive && data.tunnelHealth) {
+        const timer = setInterval(() => {
+          if (document.visibilityState === "visible") get.refresh(source);
+        }, 15_000);
+        get.addFinalizer(() => clearInterval(timer));
+      }
+      return result;
+    }),
+    Atom.withLabel(`primary-cloud-link:${target.environmentId}`),
+  );
 });
 
 const EMPTY_PRIMARY_CLOUD_LINK_STATE_ATOM = Atom.make(
@@ -69,6 +78,7 @@ export function usePrimaryCloudLinkState() {
   const refresh = useCallback(() => {
     refreshPrimaryCloudLinkState(target);
   }, [target]);
+  const data = Option.getOrNull(AsyncResult.value(result));
   let error: string | null = null;
   if (result._tag === "Failure") {
     const cause = Cause.squash(result.cause);
@@ -76,7 +86,7 @@ export function usePrimaryCloudLinkState() {
   }
 
   return {
-    data: Option.getOrNull(AsyncResult.value(result)),
+    data,
     error,
     isPending: result.waiting,
     refresh,

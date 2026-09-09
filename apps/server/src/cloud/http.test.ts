@@ -208,6 +208,7 @@ describe("reconcileDesiredCloudLink", () => {
       Effect.provideService(
         ManagedEndpointRuntime.CloudManagedEndpointRuntime,
         ManagedEndpointRuntime.CloudManagedEndpointRuntime.of({
+          getHealth: Effect.succeed({ status: "disabled", transport: "auto", readyConnections: 0 }),
           applyConfig: unusedSecretStoreOperation,
         } satisfies ManagedEndpointRuntime.CloudManagedEndpointRuntime["Service"]),
       ),
@@ -300,6 +301,11 @@ describe("releaseManagedTunnelOnShutdown", () => {
         Effect.provideService(
           ManagedEndpointRuntime.CloudManagedEndpointRuntime,
           ManagedEndpointRuntime.CloudManagedEndpointRuntime.of({
+            getHealth: Effect.succeed({
+              status: "disabled",
+              transport: "auto",
+              readyConnections: 0,
+            }),
             applyConfig: (config) =>
               Effect.sync(() => {
                 harness.applyConfigCalls.push(config);

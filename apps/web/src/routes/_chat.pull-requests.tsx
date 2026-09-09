@@ -1,3 +1,4 @@
+import { ChatTabs } from "../components/chat/ChatTabs";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { Spinner } from "~/components/ui/spinner";
 import { pullRequestHostOf, resolveEnvironmentMachineKind } from "@t3tools/contracts";
@@ -116,7 +117,7 @@ import { isTerminalFocused } from "../lib/terminalFocus";
 import { PanelLayoutControls } from "../components/chat/PanelLayoutControls";
 import { Button } from "../components/ui/button";
 import { Menu, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "../components/ui/menu";
-import { SidebarInset } from "../components/ui/sidebar";
+import { ChatWorkspace } from "../components/chat/ChatWorkspace";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import { useLiveRefresh } from "../hooks/useLiveRefresh";
 import { useOpenPanelPullRequestUrl } from "../hooks/useOpenPanelPullRequestUrl";
@@ -1882,7 +1883,7 @@ function PullRequestsRouteView() {
   }, [keybindings]);
 
   return (
-    <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
+    <ChatWorkspace className="h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
       <div className="relative flex min-h-0 flex-1">
         {pullRequestsSupported && rightPanelPresent ? openPanelControls : null}
         <PullRequestsColumn {...columnProps} />
@@ -1956,7 +1957,7 @@ function PullRequestsRouteView() {
           </RightPanelTabs>
         ) : null}
       </div>
-    </SidebarInset>
+    </ChatWorkspace>
   );
 }
 
@@ -2283,6 +2284,7 @@ function PullRequestsColumn({
         ) : null}
         {rightPanelControl}
       </WorkspacePageHeader>
+      <ChatTabs />
 
       <div
         ref={scrollRef}

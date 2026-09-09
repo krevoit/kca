@@ -7,6 +7,17 @@ within each theme. Appearance preferences are saved separately on each device or
 Mobile has its own themes and text, code, and terminal preferences. It does not follow environment
 themes or defaults.
 
+## Chat backgrounds and tabs
+
+On web and desktop, open **Settings → Appearance → Chat workspace** to choose a PNG,
+JPEG, or WebP background. Adjust dimming for readability, add a dotted texture, or
+remove the image to return to your theme. The image stays on that client.
+
+Enable **Chat tabs** to keep opened chats in a tab bar. Tabs are restored on reload
+and can include chats from different environments. Closing a tab leaves the chat
+and any running agents intact; reopen it from the sidebar. Use the arrow keys
+while focused on the tab bar to switch chats.
+
 ## Motion
 
 The main sidebar, right panel, and terminal drawer open and close immediately by default. Move the

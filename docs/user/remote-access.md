@@ -55,6 +55,14 @@ On your other device, sign in to the same T3 Connect account and choose the
 environment. Over SSH, the CLI prints a browser link and accepts the returned
 authorization code, so you do not need to forward an OAuth callback port.
 
+If T3 Connect is enabled but its tunnel cannot connect, KCA shows a warning with
+a link to **Settings → Connections**. Change **Tunnel transport** to **HTTP/2**
+when a firewall or VPN interferes with QUIC. **Auto** restores automatic selection;
+**QUIC** explicitly uses UDP. The choice is saved on the environment and changing
+it briefly restarts its tunnel, without restarting agents. For a launch-only override,
+set `TUNNEL_TRANSPORT_PROTOCOL=http2` in the server’s environment; a saved preference
+takes precedence.
+
 T3 Connect renews access credentials when needed without disconnecting a healthy
 connection. Pull request diffs and provider settings keep working after the
 previous credential expires. A failed renewal affects that request; it does not

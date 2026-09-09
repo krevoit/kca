@@ -47,7 +47,7 @@ export function relayProtectedErrorMessage(error: RelayProtectedError): string {
         ? `Relay rejected the environment connection request (${error.reason}).`
         : "Relay rejected the environment connection request.";
     case "RelayEnvironmentEndpointUnavailableError":
-      return `Relay could not reach the environment endpoint (${error.reason}).`;
+      return `Relay could not reach the environment endpoint (${error.reason}). On the host, check Settings → Connections for tunnel issues; try HTTP/2 if your network or VPN blocks QUIC.`;
     case "RelayEnvironmentEndpointTimedOutError":
       return "Relay timed out while contacting the environment endpoint.";
     case "RelayEnvironmentLinkFailedError":

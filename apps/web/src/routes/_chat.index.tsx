@@ -1,3 +1,5 @@
+import { ChatTabs } from "../components/chat/ChatTabs";
+import { openCommandPalette } from "../commandPaletteBus";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -8,7 +10,7 @@ import { NoProjectsHero } from "../components/NoProjectsHero";
 import { sortScopedProjectsForSidebar } from "../components/Sidebar.logic";
 import { Button } from "../components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "../components/ui/empty";
-import { SidebarInset } from "../components/ui/sidebar";
+import { ChatWorkspace } from "../components/chat/ChatWorkspace";
 import { WorkspacePageHeader } from "../components/WorkspacePageHeader";
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
 import {
@@ -22,6 +24,7 @@ import { hasCloudPublicConfig } from "~/cloud/publicConfig";
 
 function ChatIndexRouteView() {
   const { authGateState } = Route.useRouteContext();
+  const { empty } = Route.useSearch();
   const { environments, isReady } = useEnvironments();
 
   if (authGateState.status === "hosted-static") {
@@ -29,7 +32,7 @@ function ChatIndexRouteView() {
     if (environments.length === 0) return <HostedStaticOnboardingState />;
   }
 
-  return <IndexDraftLanding />;
+  return empty ? <ClosedChatsLanding /> : <IndexDraftLanding />;
 }
 
 /**
@@ -37,6 +40,28 @@ function ChatIndexRouteView() {
  * recently active project, so the first screen is a prompt instead of a dead
  * end. Falls back to an add-project hero when no project exists yet.
  */
+function ClosedChatsLanding() {
+  return (
+    <ChatWorkspace className="h-dvh min-h-0 overflow-hidden bg-background text-foreground">
+      <WorkspacePageHeader electron={Boolean(window.desktopBridge)}>Chats</WorkspacePageHeader>
+      <ChatTabs />
+      <Empty className="flex-1">
+        <EmptyHeader>
+          <EmptyTitle>No open chats</EmptyTitle>
+          <EmptyDescription>
+            Open a chat from the sidebar or start a new one. Your agents keep running when you close
+            their tabs.
+          </EmptyDescription>
+        </EmptyHeader>
+        <Button onClick={() => openCommandPalette({ open: "new-thread-in" })}>
+          <PlusIcon className="size-4" />
+          New chat
+        </Button>
+      </Empty>
+    </ChatWorkspace>
+  );
+}
+
 function IndexDraftLanding() {
   const projects = useProjects();
   const threads = useThreadShells();
@@ -88,7 +113,7 @@ function IndexDraftLanding() {
 
 function DraftStartError({ onRetry }: { readonly onRetry: () => void }) {
   return (
-    <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
+    <ChatWorkspace className="h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
       <Empty className="flex-1">
         <EmptyHeader className="max-w-md">
           <EmptyTitle className="text-foreground text-xl">Couldn’t start a new thread</EmptyTitle>
@@ -103,11 +128,13 @@ function DraftStartError({ onRetry }: { readonly onRetry: () => void }) {
           </div>
         </EmptyHeader>
       </Empty>
-    </SidebarInset>
+    </ChatWorkspace>
   );
 }
 
 export const Route = createFileRoute("/_chat/")({
+  validateSearch: (search: Record<string, unknown>): { empty?: boolean } =>
+    search.empty === true || search.empty === "true" ? { empty: true } : {},
   component: ChatIndexRouteView,
 });
 
@@ -115,7 +142,7 @@ function HostedStaticOnboardingState() {
   const cloudEnabled = hasCloudPublicConfig();
 
   return (
-    <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
+    <ChatWorkspace className="h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-background">
         <WorkspacePageHeader className="border-b border-border">
           <div className="flex items-center gap-2">
@@ -153,6 +180,6 @@ function HostedStaticOnboardingState() {
           </div>
         </Empty>
       </div>
-    </SidebarInset>
+    </ChatWorkspace>
   );
 }

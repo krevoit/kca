@@ -1,3 +1,4 @@
+import { CloudTunnelNotice } from "./cloud/CloudTunnelNotice";
 import { Spinner } from "~/components/ui/spinner";
 import {
   ArchiveIcon,
@@ -3726,6 +3727,7 @@ export default function LegacySidebar() {
         <SidebarThreadDetailPrewarmer key={scopedThreadKey(threadRef)} threadRef={threadRef} />
       ))}
       <SidebarChromeHeader isElectron={isElectron} />
+      <CloudTunnelNotice />
 
       <SidebarProjectsContent
         showArm64IntelBuildWarning={showArm64IntelBuildWarning}

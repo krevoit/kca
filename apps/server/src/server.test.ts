@@ -1120,6 +1120,11 @@ const buildAppUnderTest = (options?: {
         Layer.succeed(
           CloudManagedEndpointRuntime.CloudManagedEndpointRuntime,
           CloudManagedEndpointRuntime.CloudManagedEndpointRuntime.of({
+            getHealth: Effect.succeed({
+              status: "disabled",
+              transport: "auto",
+              readyConnections: 0,
+            }),
             applyConfig: () => Effect.succeed({ status: "disabled" }),
             ...options?.layers?.cloudManagedEndpointRuntime,
           }),
@@ -3002,6 +3007,28 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
       assert.equal(pairedBody._tag, "EnvironmentScopeRequiredError");
       assert.equal(pairedBody.requiredScope, "relay:write");
     }).pipe(Effect.provide(NodeHttpServer.layerTest)),
+  );
+
+  it.effect(
+    "updates tunnel transport without changing publication and rejects invalid transports",
+    () =>
+      Effect.gen(function* () {
+        yield* buildAppUnderTest();
+        const cookie = yield* getAuthenticatedSessionCookieHeader();
+        const url = yield* getHttpServerUrl("/api/connect/preferences");
+        const send = (body: unknown) =>
+          fetchEffect(url, {
+            method: "POST",
+            headers: { cookie, "content-type": "application/json" },
+            body: jsonRequestBody(body),
+          });
+        yield* send({ publishAgentActivity: true });
+        const updated = yield* send({ tunnelTransport: "http2" });
+        assert.equal(updated.status, 200);
+        const body = yield* responseJsonEffect<{ publishAgentActivity: boolean }>(updated);
+        assert.equal(body.publishAgentActivity, true);
+        assert.equal((yield* send({ tunnelTransport: "invalid" })).status, 400);
+      }).pipe(Effect.provide(NodeHttpServer.layerTest)),
   );
 
   it.effect("rejects relay config with an invalid cloud mint public key", () =>

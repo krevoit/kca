@@ -84,6 +84,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     targetId: "appearance",
   },
   {
+    id: "chat-workspace",
+    title: "Chat backgrounds & tabs",
+    to: "/settings/appearance",
+    searchTerms: ["wallpaper image photo artwork dimming texture halftone active chats tabs"],
+    targetId: "chat-workspace",
+  },
+  {
     id: "theme",
     title: "Themes",
     to: "/settings/appearance",
@@ -527,8 +534,9 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "T3 Connect",
     to: "/settings/connections",
     targetId: "connections-environment",
-    searchTerms: ["managed tunnel cloud other devices remote"],
-    desktopOnly: true,
+    searchTerms: [
+      "managed tunnel cloud other devices remote transport protocol http2 quic udp tcp",
+    ],
     cloudOnly: true,
   },
   {

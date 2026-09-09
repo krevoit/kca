@@ -270,7 +270,14 @@ export const LoadBalancingWeights = Schema.Record(
   Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 100 })),
 );
 
+const ChatBackgroundImage = Schema.NullOr(Schema.String);
+const ChatBackgroundDim = Schema.Number.check(Schema.isBetween({ minimum: 0, maximum: 1 }));
+
 export const ClientSettingsSchema = Schema.Struct({
+  chatBackgroundImage: ChatBackgroundImage.pipe(Schema.withDecodingDefault(Effect.succeed(null))),
+  chatBackgroundDim: ChatBackgroundDim.pipe(Schema.withDecodingDefault(Effect.succeed(0.65))),
+  chatBackgroundTexture: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
+  chatTabsEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   loadBalancingEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   loadBalancingWeights: LoadBalancingWeights.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
   appearanceContrast: AppearanceContrast.pipe(
@@ -1290,6 +1297,10 @@ export const ServerSettingsPatch = Schema.Struct({
 export type ServerSettingsPatch = typeof ServerSettingsPatch.Type;
 
 export const ClientSettingsPatch = Schema.Struct({
+  chatBackgroundImage: Schema.optionalKey(ChatBackgroundImage),
+  chatBackgroundDim: Schema.optionalKey(ChatBackgroundDim),
+  chatBackgroundTexture: Schema.optionalKey(Schema.Boolean),
+  chatTabsEnabled: Schema.optionalKey(Schema.Boolean),
   loadBalancingEnabled: Schema.optionalKey(Schema.Boolean),
   loadBalancingWeights: Schema.optionalKey(LoadBalancingWeights),
   appearanceContrast: Schema.optionalKey(AppearanceContrast),

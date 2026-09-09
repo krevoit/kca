@@ -1,3 +1,4 @@
+import type { CloudTunnelTransport } from "@t3tools/contracts";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -198,7 +199,8 @@ export function readPrimaryCloudLinkState(input: {
 
 export function updatePrimaryCloudPreferences(input: {
   readonly target: CloudLinkTarget;
-  readonly publishAgentActivity: boolean;
+  readonly publishAgentActivity?: boolean;
+  readonly tunnelTransport?: CloudTunnelTransport;
 }): Effect.Effect<CloudLinkState, CloudEnvironmentLinkError, HttpClient.HttpClient> {
   return Effect.gen(function* () {
     const client = yield* makeEnvironmentHttpApiClient(input.target.httpBaseUrl);

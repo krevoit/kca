@@ -374,6 +374,16 @@ export const EnvironmentCloudRelayConfigResult = Schema.Struct({
 });
 export type EnvironmentCloudRelayConfigResult = typeof EnvironmentCloudRelayConfigResult.Type;
 
+export const CloudTunnelTransport = Schema.Literals(["auto", "quic", "http2"]);
+export type CloudTunnelTransport = typeof CloudTunnelTransport.Type;
+
+export const CloudTunnelHealth = Schema.Struct({
+  status: Schema.Literals(["disabled", "connecting", "connected", "unavailable"]),
+  transport: CloudTunnelTransport,
+  readyConnections: Schema.Int,
+});
+export type CloudTunnelHealth = typeof CloudTunnelHealth.Type;
+
 export const EnvironmentCloudLinkStateResult = Schema.Struct({
   linked: Schema.Boolean,
   cloudUserId: Schema.NullOr(Schema.String),
@@ -384,12 +394,14 @@ export const EnvironmentCloudLinkStateResult = Schema.Struct({
   // clients can present the two capabilities as independent settings.
   // Optional so newer clients tolerate older environment servers.
   managedTunnelActive: Schema.optional(Schema.Boolean),
+  tunnelHealth: Schema.optional(CloudTunnelHealth),
   publishAgentActivity: Schema.Boolean,
 });
 export type EnvironmentCloudLinkStateResult = typeof EnvironmentCloudLinkStateResult.Type;
 
 export const EnvironmentCloudPreferencesRequest = Schema.Struct({
-  publishAgentActivity: Schema.Boolean,
+  publishAgentActivity: Schema.optional(Schema.Boolean),
+  tunnelTransport: Schema.optional(CloudTunnelTransport),
 });
 export type EnvironmentCloudPreferencesRequest = typeof EnvironmentCloudPreferencesRequest.Type;
 

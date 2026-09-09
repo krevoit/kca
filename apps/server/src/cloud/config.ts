@@ -56,3 +56,5 @@ export const readAgentActivityPublishingActive = (
       environmentCredential !== ""
     );
   }).pipe(Effect.orElseSucceed(() => false));
+
+export const CLOUD_TUNNEL_TRANSPORT = "cloud-tunnel-transport";

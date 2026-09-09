@@ -5,6 +5,7 @@ import {
   AuthStandardClientScopes,
   EnvironmentCloudEndpointUnavailableError,
   EnvironmentCloudLinkStateResult,
+  type EnvironmentCloudPreferencesRequest,
   EnvironmentCloudRelayConfigResult,
   EnvironmentHttpApi,
   EnvironmentHttpBadRequestError,
@@ -68,9 +69,11 @@ import {
 } from "./serviceProtocol.ts";
 import {
   CLOUD_ENDPOINT_RUNTIME_CONFIG,
+  CLOUD_TUNNEL_TRANSPORT,
   CLOUD_LINKED_USER_ID,
   CLOUD_MINT_PUBLIC_KEY,
   encodeEndpointRuntimeConfigJson,
+  decodeRuntimeConfig,
   PUBLISH_AGENT_ACTIVITY_SECRET,
   RELAY_ENVIRONMENT_CREDENTIAL_SECRET,
   RELAY_ISSUER_SECRET,
@@ -757,6 +760,7 @@ const readCloudLinkState = Effect.fn("environment.cloud.readLinkState")(function
       { concurrency: 5 },
     );
   return {
+    tunnelHealth: yield* dependencies.endpointRuntime.getHealth,
     linked: Option.isSome(cloudUserId),
     cloudUserId: Option.isSome(cloudUserId) ? bytesToString(cloudUserId.value) : null,
     relayUrl: Option.isSome(relayUrl) ? bytesToString(relayUrl.value) : null,
@@ -807,15 +811,25 @@ const cloudUnlinkHandler = Effect.fn("environment.cloud.unlink")(
 );
 
 const cloudPreferencesHandler = Effect.fn("environment.cloud.preferences")(
-  function* (
-    dependencies: CloudHttpDependencies,
-    payload: { readonly publishAgentActivity: boolean },
-  ) {
+  function* (dependencies: CloudHttpDependencies, payload: EnvironmentCloudPreferencesRequest) {
     yield* requireEnvironmentScope(AuthRelayWriteScope);
-    yield* dependencies.secrets.set(
-      PUBLISH_AGENT_ACTIVITY_SECRET,
-      stringToBytes(String(payload.publishAgentActivity)),
-    );
+    if (payload.publishAgentActivity !== undefined) {
+      yield* dependencies.secrets.set(
+        PUBLISH_AGENT_ACTIVITY_SECRET,
+        stringToBytes(String(payload.publishAgentActivity)),
+      );
+    }
+    if (payload.tunnelTransport !== undefined) {
+      yield* dependencies.secrets.set(
+        CLOUD_TUNNEL_TRANSPORT,
+        stringToBytes(payload.tunnelTransport),
+      );
+      const stored = yield* dependencies.secrets.get(CLOUD_ENDPOINT_RUNTIME_CONFIG);
+      const config = Option.isSome(stored)
+        ? Option.getOrNull(decodeRuntimeConfig(bytesToString(stored.value)))
+        : null;
+      yield* dependencies.endpointRuntime.applyConfig(config);
+    }
     return yield* readCloudLinkState(dependencies);
   },
   Effect.catchIf(

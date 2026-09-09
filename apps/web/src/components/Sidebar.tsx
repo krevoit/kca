@@ -1,3 +1,4 @@
+import { CloudTunnelNotice } from "./cloud/CloudTunnelNotice";
 import { useAtomValue } from "@effect/atom-react";
 import * as Schema from "effect/Schema";
 import {
@@ -4251,6 +4252,7 @@ export default function Sidebar() {
   return (
     <>
       <SidebarChromeHeader isElectron={isElectron} />
+      <CloudTunnelNotice />
       <SidebarContent
         className="gap-0"
         fixedHeader={

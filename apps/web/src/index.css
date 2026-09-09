@@ -2056,3 +2056,8 @@ code {
     visibility: visible;
   }
 }
+
+[data-chat-wallpaper="true"] .chat-surface,
+[data-chat-wallpaper="true"] .chat-thread-panel {
+  background: transparent;
+}

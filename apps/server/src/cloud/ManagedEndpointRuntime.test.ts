@@ -1,3 +1,4 @@
+import { HttpClient, HttpClientResponse } from "effect/unstable/http";
 import { describe, expect, it } from "@effect/vitest";
 import { vi } from "vite-plus/test";
 import * as Deferred from "effect/Deferred";
@@ -15,6 +16,7 @@ import * as RelayClient from "@t3tools/shared/relayClient";
 
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as ManagedEndpointRuntime from "./ManagedEndpointRuntime.ts";
+import { CLOUD_TUNNEL_TRANSPORT } from "./config.ts";
 
 const relayClientAvailableLayer = Layer.succeed(
   RelayClient.RelayClient,
@@ -30,26 +32,41 @@ const relayClientAvailableLayer = Layer.succeed(
   }),
 );
 
+interface RuntimeOptions {
+  readonly httpClient?: HttpClient.HttpClient;
+  readonly transport?: () => string | undefined;
+}
+
 const runtimeDependencies = (
   spawner: ReturnType<typeof ChildProcessSpawner.make>,
   relayClientLayer = relayClientAvailableLayer,
+  options: RuntimeOptions = {},
 ) =>
   Layer.mergeAll(
     Layer.succeed(ChildProcessSpawner.ChildProcessSpawner, spawner),
     relayClientLayer,
+    Layer.succeed(
+      HttpClient.HttpClient,
+      options.httpClient ?? HttpClient.make(() => Effect.die("unused")),
+    ),
     Layer.mock(ServerSecretStore.ServerSecretStore)({
-      get: () => Effect.succeed(Option.none()),
+      get: (key) =>
+        Effect.sync(() => {
+          const value = key === CLOUD_TUNNEL_TRANSPORT ? options.transport?.() : undefined;
+          return value === undefined ? Option.none() : Option.some(new TextEncoder().encode(value));
+        }),
     }),
   );
 
 const buildCloudManagedEndpointRuntime = (
   spawner: ReturnType<typeof ChildProcessSpawner.make>,
   relayClientLayer = relayClientAvailableLayer,
+  options: RuntimeOptions = {},
 ) =>
   Effect.gen(function* () {
     const context = yield* Layer.build(
       ManagedEndpointRuntime.layer.pipe(
-        Layer.provide(runtimeDependencies(spawner, relayClientLayer)),
+        Layer.provide(runtimeDependencies(spawner, relayClientLayer, options)),
       ),
     );
     return yield* Effect.service(ManagedEndpointRuntime.CloudManagedEndpointRuntime).pipe(
@@ -62,6 +79,7 @@ function makeHandle(input: {
   readonly onKill: () => void;
   readonly isRunning?: () => boolean;
   readonly exitCode?: Effect.Effect<ChildProcessSpawner.ExitCode>;
+  readonly output?: Stream.Stream<Uint8Array>;
 }) {
   return ChildProcessSpawner.makeHandle({
     pid: ChildProcessSpawner.ProcessId(input.pid),
@@ -75,13 +93,100 @@ function makeHandle(input: {
     stdin: Sink.drain,
     stdout: Stream.empty,
     stderr: Stream.empty,
-    all: Stream.empty,
+    all: input.output ?? Stream.empty,
     getInputFd: () => Sink.drain,
     getOutputFd: () => Stream.empty,
   });
 }
 
 describe("CloudManagedEndpointRuntime", () => {
+  it.effect("reports startup failure and readiness recovery without restarting the process", () =>
+    Effect.gen(function* () {
+      const observed = yield* Deferred.make<void>();
+      let readyConnections = 0;
+      let probeFailed = false;
+      const spawner = ChildProcessSpawner.make(() =>
+        Effect.succeed(
+          makeHandle({
+            pid: 42,
+            onKill: () => {},
+            output: Stream.make(
+              new TextEncoder().encode("INF Starting metrics server on 127.0.0.1:43210/metrics\n"),
+            ).pipe(
+              Stream.concat(
+                Stream.fromEffect(Deferred.succeed(observed, undefined)).pipe(Stream.drain),
+              ),
+            ),
+          }),
+        ),
+      );
+      const runtime = yield* buildCloudManagedEndpointRuntime(spawner, relayClientAvailableLayer, {
+        httpClient: HttpClient.make((request) =>
+          Effect.sync(() => {
+            expect(request.url).toBe("http://127.0.0.1:43210/ready");
+            return HttpClientResponse.fromWeb(
+              request,
+              probeFailed
+                ? new Response("not ready", { status: 503 })
+                : Response.json({ readyConnections }, { status: readyConnections ? 200 : 503 }),
+            );
+          }),
+        ),
+      });
+      expect((yield* runtime.getHealth).status).toBe("disabled");
+      yield* runtime.applyConfig({ providerKind: "cloudflare_tunnel", connectorToken: "secret" });
+      yield* Deferred.await(observed);
+      expect((yield* runtime.getHealth).status).toBe("connecting");
+      yield* TestClock.adjust("31 seconds");
+      expect((yield* runtime.getHealth).status).toBe("unavailable");
+      readyConnections = 4;
+      expect((yield* runtime.getHealth).status).toBe("connected");
+      readyConnections = 0;
+      expect((yield* runtime.getHealth).status).toBe("unavailable");
+      readyConnections = 1;
+      expect((yield* runtime.getHealth).readyConnections).toBe(1);
+      probeFailed = true;
+      expect((yield* runtime.getHealth).status).toBe("unavailable");
+      yield* runtime.applyConfig(null);
+      expect((yield* runtime.getHealth).status).toBe("disabled");
+    }),
+  );
+
+  it.effect("persists transport selection across starts and rotates only when it changes", () =>
+    Effect.gen(function* () {
+      let transport = "http2";
+      const spawned: ChildProcess.StandardCommand[] = [];
+      const spawner = ChildProcessSpawner.make((command) =>
+        Effect.sync(() => {
+          if (!ChildProcess.isStandardCommand(command))
+            throw new Error("Expected standard command");
+          spawned.push(command);
+          return makeHandle({ pid: spawned.length, onKill: () => {} });
+        }),
+      );
+      const config = { providerKind: "cloudflare_tunnel" as const, connectorToken: "secret" };
+      const runtime = yield* buildCloudManagedEndpointRuntime(spawner, relayClientAvailableLayer, {
+        transport: () => transport,
+      });
+      yield* runtime.applyConfig(config);
+      yield* runtime.applyConfig(config);
+      expect(spawned).toHaveLength(1);
+      yield* runtime.applyConfig(null);
+      yield* runtime.applyConfig(config);
+      transport = "quic";
+      yield* runtime.applyConfig(config);
+      transport = "auto";
+      yield* runtime.applyConfig(config);
+      expect(spawned.map((command) => command.options.env?.TUNNEL_TRANSPORT_PROTOCOL)).toEqual([
+        "http2",
+        "http2",
+        "quic",
+        "auto",
+      ]);
+      expect((yield* runtime.getHealth).transport).toBe("auto");
+    }),
+  );
+
   it("classifies Cloudflare connection and warning output", () => {
     expect(
       ManagedEndpointRuntime.classifyRelayClientOutput(

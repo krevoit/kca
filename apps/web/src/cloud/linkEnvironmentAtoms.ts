@@ -1,3 +1,4 @@
+import type { CloudTunnelTransport } from "@t3tools/contracts";
 import {
   createAtomCommandScheduler,
   createRuntimeCommand,
@@ -41,6 +42,9 @@ export const updatePrimaryEnvironmentPreferences = createRuntimeCommand(connecti
   label: "web:cloud:update-primary-environment-preferences",
   scheduler: cloudLinkScheduler,
   concurrency: cloudLinkConcurrency,
-  execute: (input: { readonly target: CloudLinkTarget; readonly publishAgentActivity: boolean }) =>
-    updatePrimaryCloudPreferences(input),
+  execute: (input: {
+    readonly target: CloudLinkTarget;
+    readonly publishAgentActivity?: boolean;
+    readonly tunnelTransport?: CloudTunnelTransport;
+  }) => updatePrimaryCloudPreferences(input),
 });

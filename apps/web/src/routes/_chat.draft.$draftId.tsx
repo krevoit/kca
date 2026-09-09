@@ -8,7 +8,7 @@ import {
   useBackgroundDraftSubmissionPending,
   useComposerDraftStore,
 } from "../composerDraftStore";
-import { SidebarInset } from "../components/ui/sidebar";
+import { ChatWorkspace } from "../components/chat/ChatWorkspace";
 import { waitForDraftHeroTransition } from "../components/chat/draftHeroTransition";
 import { buildThreadRouteParams } from "../threadRoutes";
 import { useThread, useThreadRefs } from "../state/entities";
@@ -76,7 +76,7 @@ function DraftChatThreadRouteView() {
   }
 
   return (
-    <SidebarInset className="h-svh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground md:h-dvh">
+    <ChatWorkspace className="h-svh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground md:h-dvh">
       <ChatView
         draftId={draftId}
         environmentId={draftSession.environmentId}
@@ -84,7 +84,7 @@ function DraftChatThreadRouteView() {
         routeKind="draft"
         forceExpandedMobileComposer
       />
-    </SidebarInset>
+    </ChatWorkspace>
   );
 }
 

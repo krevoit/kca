@@ -1,5 +1,9 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="128" height="128" rx="28" fill="#15181e"/>
-<path d="M52 40 30 64l22 24" stroke="#c8cdd6" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M76 40l22 24-22 24" stroke="#8b93a3" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <title>KCA</title>
+  <rect width="128" height="128" rx="28" fill="#15181e"/>
+  <g stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 43v42m23-42L18 64l23 21"/>
+    <path d="M74 47c-5-6-20-7-20 6v22c0 13 15 12 20 6"/>
+    <path d="m87 85 12-42 12 42m-20-13h16"/>
+  </g>
 </svg>

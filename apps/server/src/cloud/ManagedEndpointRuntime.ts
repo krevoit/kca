@@ -1,3 +1,6 @@
+import { HttpClient, HttpClientResponse } from "effect/unstable/http";
+import { CloudTunnelTransport, type CloudTunnelHealth } from "@t3tools/contracts";
+import * as Schema from "effect/Schema";
 import type { RelayManagedEndpointRuntimeConfig } from "@t3tools/contracts/relay";
 import * as RelayClient from "@t3tools/shared/relayClient";
 import * as Clock from "effect/Clock";
@@ -16,7 +19,16 @@ import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
 
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
-import { CLOUD_ENDPOINT_RUNTIME_CONFIG, decodeRuntimeConfig } from "./config.ts";
+import {
+  CLOUD_ENDPOINT_RUNTIME_CONFIG,
+  CLOUD_TUNNEL_TRANSPORT,
+  decodeRuntimeConfig,
+} from "./config.ts";
+
+const decodeTransport = Schema.decodeUnknownOption(CloudTunnelTransport);
+const decodeReadiness = HttpClientResponse.schemaBodyJson(
+  Schema.Struct({ readyConnections: Schema.Int }),
+);
 
 function bytesToString(bytes: Uint8Array): string {
   return new TextDecoder().decode(bytes);
@@ -57,6 +69,7 @@ export type CloudManagedEndpointRuntimeStatus =
 export class CloudManagedEndpointRuntime extends Context.Service<
   CloudManagedEndpointRuntime,
   {
+    readonly getHealth: Effect.Effect<CloudTunnelHealth>;
     readonly applyConfig: (
       config: RelayManagedEndpointRuntimeConfig | null,
     ) => Effect.Effect<CloudManagedEndpointRuntimeStatus>;
@@ -69,6 +82,7 @@ interface ActiveConnector {
   readonly configKey: string;
   readonly config: RelayManagedEndpointRuntimeConfig;
   readonly startedAtMillis: number;
+  metricsUrl: string | null;
 }
 
 // A connector that exits before running this long is treated as part of a
@@ -90,8 +104,12 @@ export function classifyRelayClientOutput(line: string): "connected" | "warning"
   return /\b(?:ERR|WRN|FTL|PNC)\b/u.test(line) ? "warning" : "debug";
 }
 
-function runtimeConfigKey(config: RelayManagedEndpointRuntimeConfig): string {
+function runtimeConfigKey(
+  config: RelayManagedEndpointRuntimeConfig,
+  transport: CloudTunnelTransport,
+): string {
   return JSON.stringify({
+    transport,
     providerKind: config.providerKind,
     connectorToken: config.connectorToken,
     tunnelId: config.tunnelId ?? null,
@@ -112,6 +130,9 @@ const stopConnector = (connector: ActiveConnector | null) =>
     : Effect.void;
 
 export const make = Effect.gen(function* () {
+  const httpClient = yield* HttpClient.HttpClient;
+  const secrets = yield* ServerSecretStore.ServerSecretStore;
+  let transport: CloudTunnelTransport = "auto";
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const relayClient = yield* RelayClient.RelayClient;
   const activeRef = yield* Ref.make<ActiveConnector | null>(null);
@@ -177,7 +198,7 @@ export const make = Effect.gen(function* () {
           if (
             !desiredConfig ||
             desiredConfig.providerKind !== "cloudflare_tunnel" ||
-            runtimeConfigKey(desiredConfig) !== connector.configKey
+            runtimeConfigKey(desiredConfig, transport) !== connector.configKey
           ) {
             return;
           }
@@ -204,6 +225,8 @@ export const make = Effect.gen(function* () {
       Stream.map((line) => line.trim()),
       Stream.filter((line) => line.length > 0),
       Stream.runForEach((line) => {
+        const metrics = /Starting metrics server on (127\.0\.0\.1:\d+)\/metrics/u.exec(line);
+        if (metrics) connector.metricsUrl = `http://${metrics[1]}/ready`;
         const output = line.replaceAll(connector.config.connectorToken, "<redacted>");
         const attributes = {
           pid: Number(connector.child.pid),
@@ -238,7 +261,7 @@ export const make = Effect.gen(function* () {
         : { status: "disabled" };
     }
 
-    const nextConfigKey = runtimeConfigKey(config);
+    const nextConfigKey = runtimeConfigKey(config, transport);
     const active = yield* Ref.get(activeRef);
     if (active?.configKey === nextConfigKey) {
       const isRunning = yield* active.child.isRunning.pipe(Effect.orElseSucceed(() => false));
@@ -277,6 +300,8 @@ export const make = Effect.gen(function* () {
           env: {
             ...process.env,
             TUNNEL_TOKEN: config.connectorToken,
+            TUNNEL_TRANSPORT_PROTOCOL: transport,
+            TUNNEL_METRICS: "127.0.0.1:0",
           },
           shell: false,
           stderr: "pipe",
@@ -321,6 +346,7 @@ export const make = Effect.gen(function* () {
         configKey: nextConfigKey,
         config,
         startedAtMillis: yield* Clock.currentTimeMillis,
+        metricsUrl: null,
       } satisfies ActiveConnector;
       yield* Ref.set(activeRef, connector);
       yield* Effect.forkIn(observeConnectorOutput(connector), connectorScope);
@@ -347,14 +373,51 @@ export const make = Effect.gen(function* () {
     (config: RelayManagedEndpointRuntimeConfig | null) =>
       reconcileSemaphore.withPermits(1)(
         // An explicit config change starts over with a fresh backoff.
-        Ref.set(restartDelayRef, 0).pipe(
+        Effect.gen(function* () {
+          const stored = yield* secrets
+            .get(CLOUD_TUNNEL_TRANSPORT)
+            .pipe(Effect.orElseSucceed(() => Option.none()));
+          transport = Option.getOrElse(
+            decodeTransport(
+              Option.isSome(stored)
+                ? bytesToString(stored.value)
+                : process.env.TUNNEL_TRANSPORT_PROTOCOL,
+            ),
+            () => "auto" as const,
+          );
+          yield* Ref.set(restartDelayRef, 0);
+        }).pipe(
           Effect.andThen(Ref.set(desiredConfigRef, config)),
           Effect.andThen(reconcileConfig(config)),
         ),
       ),
   );
 
+  const getHealth = Effect.gen(function* () {
+    const desired = yield* Ref.get(desiredConfigRef);
+    if (!desired) return { status: "disabled", transport, readyConnections: 0 } as const;
+    const active = yield* Ref.get(activeRef);
+    const running =
+      active && (yield* active.child.isRunning.pipe(Effect.orElseSucceed(() => false)));
+    if (!running) return { status: "unavailable", transport, readyConnections: 0 } as const;
+    const readiness = active.metricsUrl
+      ? yield* httpClient.get(active.metricsUrl).pipe(
+          Effect.flatMap(decodeReadiness),
+          Effect.timeout("2 seconds"),
+          Effect.orElseSucceed(() => null),
+        )
+      : null;
+    const readyConnections = readiness?.readyConnections ?? 0;
+    const starting = (yield* Clock.currentTimeMillis) - active.startedAtMillis < 30_000;
+    return {
+      status: readyConnections > 0 ? "connected" : starting ? "connecting" : "unavailable",
+      transport,
+      readyConnections,
+    } satisfies CloudTunnelHealth;
+  });
+
   const runtime = CloudManagedEndpointRuntime.of({
+    getHealth,
     applyConfig,
   });
 

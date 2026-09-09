@@ -1644,6 +1644,7 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
     publishAgentActivity,
     operationError,
     reconcileCloudState,
+    updateTunnelTransport,
   } = useCloudLinkController();
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUpdatingPreference, setIsUpdatingPreference] = useState(false);
@@ -1669,7 +1670,7 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
             ? "T3 Connect tunnel disabled"
             : "T3 Connect unlinked",
         description: enabled
-          ? "This environment is available through T3 Connect."
+          ? "T3 Connect is enabled. The tunnel may take a moment to connect."
           : publishAgentActivity
             ? "The managed tunnel was removed. Agent activity publishing stays on."
             : "This environment is no longer available through T3 Connect.",
@@ -1695,22 +1696,57 @@ function ConfiguredCloudLinkRow({ canManageRelay }: { readonly canManageRelay: b
 
   return (
     <>
-      {window.desktopBridge ? (
+      <SettingsRow
+        title={searchableSetting("t3-connect").title}
+        description={
+          managedTunnelActive
+            ? "T3 Connect is enabled for this environment."
+            : "Make this environment available to your other devices through T3 Connect."
+        }
+        status={operationError ?? primaryCloudLinkState.error}
+        control={
+          <CloudLinkSwitch
+            checked={managedTunnelActive}
+            disabled={!canManageRelay || !isSignedIn || primaryCloudLinkState.isPending || isBusy}
+            disabledReason={disabledReason}
+            onCheckedChange={(enabled) => void updateManagedTunnel(enabled)}
+          />
+        }
+      />
+      {managedTunnelActive && primaryCloudLinkState.data?.tunnelHealth ? (
         <SettingsRow
-          title={searchableSetting("t3-connect").title}
-          description={
-            managedTunnelActive
-              ? "This environment is available to your other devices through T3 Connect."
-              : "Make this environment available to your other devices through T3 Connect."
+          title="Tunnel transport"
+          description="Auto chooses the transport. Try HTTP/2 when a firewall or VPN prevents QUIC from connecting. Changing this restarts the tunnel."
+          status={
+            primaryCloudLinkState.data.tunnelHealth.status === "unavailable"
+              ? "T3 Connect cannot reach this environment: the tunnel has no ready connections. Try HTTP/2 or check your network."
+              : primaryCloudLinkState.data.tunnelHealth.status === "connecting"
+                ? "Connecting tunnel…"
+                : null
           }
-          status={operationError ?? primaryCloudLinkState.error}
           control={
-            <CloudLinkSwitch
-              checked={managedTunnelActive}
-              disabled={!canManageRelay || !isSignedIn || primaryCloudLinkState.isPending || isBusy}
-              disabledReason={disabledReason}
-              onCheckedChange={(enabled) => void updateManagedTunnel(enabled)}
-            />
+            <Select
+              value={primaryCloudLinkState.data.tunnelHealth.transport}
+              disabled={!canManageRelay || isBusy}
+              onValueChange={async (value) => {
+                if (value !== "auto" && value !== "quic" && value !== "http2") return;
+                setIsUpdating(true);
+                try {
+                  await updateTunnelTransport(value);
+                } finally {
+                  setIsUpdating(false);
+                }
+              }}
+            >
+              <SelectTrigger aria-label="Tunnel transport">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectPopup>
+                <SelectItem value="auto">Auto</SelectItem>
+                <SelectItem value="quic">QUIC (UDP)</SelectItem>
+                <SelectItem value="http2">HTTP/2 (TCP)</SelectItem>
+              </SelectPopup>
+            </Select>
           }
         />
       ) : null}
