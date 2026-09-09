@@ -205,8 +205,14 @@ and the Docker image cover the rest.
   `KCA_PUBLISH_NPM` / `KCA_DEPLOY_WEB` / `KCA_PUBLISH_AUR` / `KCA_FINALIZE` repo variables.
 - The npm package is `kca-cli` (bin: `kca`). It is unpublished: background-service
   install, remote self-update, desktop SSH to fresh hosts, and `npx kca-cli` all
-  need it. To publish, set `KCA_PUBLISH_NPM=true` and run the release workflow —
-  `kca-cli` is currently unclaimed on npm.
+  need it. To publish, add an npm automation token as the `NPM_TOKEN` secret,
+  set the `KCA_PUBLISH_NPM` repo variable to `true`, and cut a release.
+- macOS builds are unsigned until Apple signing secrets exist: `CSC_LINK` +
+  `CSC_KEY_PASSWORD` (Developer ID Application `.p12`, base64), `APPLE_API_KEY` /
+  `APPLE_API_KEY_ID` / `APPLE_API_ISSUER` (App Store Connect API key, for
+  notarization), and the `APPLE_TEAM_ID` repo variable. Passkey entitlements
+  additionally need `MACOS_PROVISIONING_PROFILE`. Signed builds install updates
+  in place; unsigned ones fall back to manual download.
 - Building from source: install `vp` (`curl -fsSL https://vite.plus | bash`),
   then `vp i`. Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a PR.
 

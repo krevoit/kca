@@ -3712,10 +3712,16 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
   const stageProdResourcesDir = path.join(stageAppDir, "apps/desktop/prod-resources");
   yield* fs.copy(stageResourcesDir, stageProdResourcesDir);
 
+  // Passkey entitlements are opt-in: plain Developer ID signing (and
+  // notarization) needs no provisioning profile. Only resolve the passkey
+  // configuration when one is actually provided.
+  const repoEnv = loadRepoEnv({ repoRoot });
+  const passkeyProfileConfigured =
+    (repoEnv.T3CODE_MACOS_PROVISIONING_PROFILE?.trim() ?? "").length > 0;
   const configuredMacPasskeySigning =
-    options.platform === "mac" && options.signed
+    options.platform === "mac" && options.signed && passkeyProfileConfigured
       ? yield* Effect.try({
-          try: () => resolveMacPasskeySigningConfiguration(loadRepoEnv({ repoRoot })),
+          try: () => resolveMacPasskeySigningConfiguration(repoEnv),
           catch: MacPasskeySigningConfigurationResolutionError.fromCause,
         })
       : undefined;
