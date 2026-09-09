@@ -3773,7 +3773,12 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
       ? path.join(stageAppDir, WINDOWS_SERVER_RESOURCE_SOURCE_DIR, WINDOWS_SERVER_ASAR_RESOURCE)
       : undefined;
   const stagePackageJson: StagePackageJson = {
-    name: "kca",
+    // The staged package name feeds Electron's app.getName(), which macOS
+    // safeStorage uses as its keychain identity ("<name> Safe Storage").
+    // Renaming it orphans every secret an older build encrypted, so mac keeps
+    // the historical name. Linux gets kca: fork builds are the only ones that
+    // ever shipped there, so no migration exists to break.
+    name: platform === "linux" ? "kca" : "t3code",
     version: appVersion,
     buildVersion: appVersion,
     t3codeCommitHash: commitHash,
