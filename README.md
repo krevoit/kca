@@ -178,17 +178,19 @@ machines simply contribute nothing until they reconnect.
    [releases page](https://github.com/krevoit/kca/releases).
 2. Open it, drag the app into Applications (it must live in /Applications —
    running it from the disk image breaks updates).
-3. These builds are **unsigned** (no Apple Developer certificate in the fork),
-   so the first launch is blocked by Gatekeeper. Right-click the app →
-   **Open** → **Open**, or clear the quarantine flag:
+3. Builds are signed and notarized, so Gatekeeper opens them directly and
+   in-app updates install in place. Moving from an older unsigned build may
+   show one keychain approval prompt; allow it to keep your saved sessions.
 
    ```bash
    xattr -cr "/Applications/KCA (Alpha).app"
    ```
 
-4. macOS builds are **unsigned**, so in-place auto-update cannot install: when
-   the app offers an update, use the **Download manually** button to grab the
-   new DMG from the release page and replace the app yourself.
+   (Only needed if macOS still flags the app on first launch.)
+
+4. If an in-app update ever reports an install error, use its
+   **Download manually** button to grab the DMG from the release page and
+   replace the app yourself.
 
 Intel Macs are not shipped (no CI runners for them); the Linux AppImage/`.deb`
 and the Docker image cover the rest.
@@ -207,12 +209,11 @@ and the Docker image cover the rest.
   install, remote self-update, desktop SSH to fresh hosts, and `npx kca-code` all
   need it. To publish, add an npm automation token as the `NPM_TOKEN` secret,
   set the `KCA_PUBLISH_NPM` repo variable to `true`, and cut a release.
-- macOS builds are unsigned until Apple signing secrets exist: `CSC_LINK` +
-  `CSC_KEY_PASSWORD` (Developer ID Application `.p12`, base64), `APPLE_API_KEY` /
-  `APPLE_API_KEY_ID` / `APPLE_API_ISSUER` (App Store Connect API key, for
-  notarization), and the `APPLE_TEAM_ID` repo variable. Passkey entitlements
-  additionally need `MACOS_PROVISIONING_PROFILE`. Signed builds install updates
-  in place; unsigned ones fall back to manual download.
+- macOS builds sign with a Developer ID certificate and notarize when the
+  `CSC_LINK` / `CSC_KEY_PASSWORD` / `APPLE_API_KEY*` secrets exist (passkey
+  entitlements additionally need `MACOS_PROVISIONING_PROFILE` + `APPLE_TEAM_ID`).
+  Signed builds install updates in place; unsigned ones fall back to manual
+  download.
 - Building from source: install `vp` (`curl -fsSL https://vite.plus | bash`),
   then `vp i`. Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a PR.
 
