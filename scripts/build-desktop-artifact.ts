@@ -3778,7 +3778,7 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
     // Renaming it orphans every secret an older build encrypted, so mac keeps
     // the historical name. Linux gets kca: fork builds are the only ones that
     // ever shipped there, so no migration exists to break.
-    name: platform === "linux" ? "kca" : "t3code",
+    name: options.platform === "linux" ? "kca" : "t3code",
     version: appVersion,
     buildVersion: appVersion,
     t3codeCommitHash: commitHash,
