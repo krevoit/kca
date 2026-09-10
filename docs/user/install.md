@@ -13,10 +13,23 @@ Command-line use and SSH hosts need Node.js 22.16+ (22.x), 23.11+
 You need an installed, authenticated provider before starting a thread. You can
 launch KCA and configure providers afterwards.
 
+## From npm
+
+The `kca-code` package (bin: `kca`) is published with each release. Requires
+Node.js 22.16+ (22.x), 23.11+ (23.x), or 24.10 and later:
+
+```bash
+npm install -g kca-code
+kca serve
+```
+
+This starts the server and opens the local web app. Prefer no install?
+`npx kca-code serve` runs it directly. Run `kca --help` for command-line
+options.
+
 ## From source
 
-KCA is not published to npm, so there is no `npx` one-liner. Clone the repo,
-install the toolchain, and link the CLI:
+Clone the repo, install the toolchain, and link the CLI:
 
 ```bash
 git clone https://github.com/krevoit/kca && cd kca
@@ -27,8 +40,7 @@ node apps/server/scripts/cli.ts build
 sudo ln -sf "$PWD/apps/server/dist/bin.mjs" /usr/local/bin/kca
 ```
 
-This starts the server and opens the local web app. Run
-`kca --help` for command-line options.
+Then `kca serve` starts the server and opens the local web app.
 
 Prefer Docker? One container runs the server with the web client bundled —
 see the [README](../../README.md).

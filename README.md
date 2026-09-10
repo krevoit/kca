@@ -96,11 +96,21 @@ Tagged releases also publish versioned images
 
 Pick one:
 
-**A. Docker (recommended for headless).** Same as §1. The container exposes
+**A. npm (recommended for CLI use).** Requires Node.js 22.16+ or 24+:
+
+```bash
+npm install -g kca-code
+kca serve
+```
+
+Or without installing: `npx kca-code serve`. The package is published with
+each release.
+
+**B. Docker (recommended for headless).** Same as §1. The container exposes
 the full WebUI on port 8080; put it behind Caddy/Nginx with TLS if you expose
 it beyond your LAN/Tailnet.
 
-**B. From source.** Requires Node.js 24+ and the `vp` toolchain:
+**C. From source.** Requires Node.js 24+ and the `vp` toolchain:
 
 ```bash
 curl -fsSL https://vite.plus | bash   # provides `vp`
@@ -135,7 +145,7 @@ WantedBy=multi-user.target
 sudo systemctl daemon-reload && sudo systemctl enable --now kca
 ```
 
-**C. Debian desktop (GUI).** Grab the `.deb` from the
+**D. Debian desktop (GUI).** Grab the `.deb` from the
 [releases page](https://github.com/krevoit/kca/releases) (an AppImage is
 published too):
 
@@ -214,10 +224,10 @@ and the Docker image cover the rest.
   The Release workflow builds macOS arm64 DMG + Linux AppImage/`.deb` on
   standard GitHub runners; npm/Vercel/AUR/finalize steps are opt-in via
   `KCA_PUBLISH_NPM` / `KCA_DEPLOY_WEB` / `KCA_PUBLISH_AUR` / `KCA_FINALIZE` repo variables.
-- The npm package is `kca-code` (bin: `kca`). It is unpublished: background-service
-  install, remote self-update, desktop SSH to fresh hosts, and `npx kca-code` all
-  need it. To publish, add an npm automation token as the `NPM_TOKEN` secret,
-  set the `KCA_PUBLISH_NPM` repo variable to `true`, and cut a release.
+- The npm package is `kca-code` (bin: `kca`), published with each release:
+  `npm install -g kca-code`, or run it without installing via `npx kca-code`.
+  Background-service install, remote self-update, and desktop SSH to fresh
+  hosts all pull this package.
 - macOS builds sign with a Developer ID certificate and notarize when the
   `CSC_LINK` / `CSC_KEY_PASSWORD` / `APPLE_API_KEY*` secrets exist (passkey
   entitlements additionally need `MACOS_PROVISIONING_PROFILE` + `APPLE_TEAM_ID`).
