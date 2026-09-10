@@ -157,4 +157,38 @@ describe("usage pricing", () => {
       0.1 / 1_000_000,
     );
   });
+
+  it("prices free-tier models at their paid counterpart's rate", () => {
+    const table = withBuiltinRates(parseRateTable({ "deepseek-v4-flash": rate(1) }));
+
+    expect(lookupRate(table, "muse-spark-1.3-contributor-free")).toEqual(
+      lookupRate(table, "muse-spark-1.3-contributor"),
+    );
+    expect(lookupRate(table, "deepseek-v4-flash-free")).toEqual(
+      lookupRate(table, "deepseek-v4-flash"),
+    );
+
+    // Same 1M-token totals as the contributor test: $0.402, not $0.00.
+    const priced = priceUsage(table, "muse-spark-1.3-contributor-free", totals, null);
+    expect(priced.costSource).toBe("modelPriced");
+    expect(priced.costUsd).toBeCloseTo(0.1 + 0.002 + 0.1 + 0.2, 12);
+  });
+
+  it("prefers an explicit free-tier rate over the paid fallback", () => {
+    const table = parseRateTable({
+      "example-model": rate(1),
+      "example-model-free": rate(9),
+    });
+
+    expect(lookupRate(table, "example-model-free")?.inputCostPerToken).toBe(9);
+    expect(lookupRate(table, "other-model-free")).toBeNull();
+  });
+
+  it("keeps unpriceable names unpriced even with a free-tier suffix", () => {
+    const table = withBuiltinRates(parseRateTable({}));
+
+    expect(lookupRate(table, "sonnet-free")).toBeNull();
+    expect(lookupRate(table, "free")).toBeNull();
+    expect(lookupRate(table, "muse-spark-1.3-contributor-free")).not.toBeNull();
+  });
 });

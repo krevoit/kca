@@ -196,6 +196,16 @@ function stripVariantSuffix(key: string): string {
 }
 
 /**
+ * Drops a `-free` free-tier suffix such as `muse-spark-1.3-contributor-free`.
+ * Free-tier models report no usable rate of their own, so they price at their
+ * paid counterpart's API rates rather than showing $0.00. Only a fallback:
+ * an explicit table entry for the full `-free` name still wins.
+ */
+function stripFreeTierSuffix(key: string): string {
+  return key.endsWith("-free") ? key.slice(0, -"-free".length) : key;
+}
+
+/**
  * Models we never price, regardless of the table.
  *
  * `<synthetic>` marks locally generated messages that were never billed. Bare
@@ -211,11 +221,20 @@ const UNPRICEABLE_MODELS = new Set([
   "fable",
 ]);
 
+function isPriceableKey(key: string): boolean {
+  const bareName = bareModelName(key);
+  return bareName.length > 0 && !UNPRICEABLE_MODELS.has(bareName);
+}
+
 export function lookupRate(table: RateTable, model: string): ModelRate | null {
   const key = stripVariantSuffix(normalizeRateKey(model));
-  const bareName = bareModelName(key);
-  if (bareName.length === 0 || UNPRICEABLE_MODELS.has(bareName)) return null;
-  return table.get(key) ?? null;
+  if (!isPriceableKey(key)) return null;
+  const freeTierFallback = stripFreeTierSuffix(key);
+  const fallbackRate =
+    freeTierFallback !== key && isPriceableKey(freeTierFallback)
+      ? table.get(freeTierFallback)
+      : undefined;
+  return table.get(key) ?? fallbackRate ?? null;
 }
 
 export interface PricedUsage {
