@@ -108,9 +108,9 @@ describe("ssh tunnel scripts", () => {
     assert.include(script, "T3_NODE_SCRIPT_PATH=''");
     assert.include(script, 'exec t3 "$@"');
     assert.include(script, 'exec "$T3_CLI_PATH" "$@"');
-    assert.include(script, "could not install 't3@latest'");
-    assert.include(script, "require_installed_t3_cli npx --yes --package 't3@latest'");
-    assert.include(script, "require_installed_t3_cli npm exec --yes --package 't3@latest'");
+    assert.include(script, "could not install 'kca-code@latest'");
+    assert.include(script, "require_installed_t3_cli npx --yes --package 'kca-code@latest'");
+    assert.include(script, "require_installed_t3_cli npm exec --yes --package 'kca-code@latest'");
     assert.include(script, "npm produced no t3 executable");
     assert.include(script, 'prepend_path_if_dir "$HOME/.local/bin"');
     assert.include(script, `T3_NODE_ENGINE_RANGE='${TEST_NODE_ENGINE_RANGE}'`);
