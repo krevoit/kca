@@ -68,7 +68,7 @@ function ChatTabItem({
   return (
     <div
       className={cn(
-        "group relative flex shrink-0 items-center rounded-lg border transition-colors",
+        "group relative flex shrink-0 items-center rounded-md border transition-colors",
         active
           ? "border-border bg-card text-foreground shadow-sm"
           : "border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
@@ -86,7 +86,7 @@ function ChatTabItem({
               role="tab"
               aria-selected={active}
               tabIndex={focusable ? 0 : -1}
-              className="flex h-8 max-w-52 min-w-20 items-center gap-1.5 truncate px-2.5 text-xs outline-offset-[-2px]"
+              className="flex h-7 max-w-52 min-w-20 items-center gap-1.5 truncate px-2.5 text-xs outline-offset-[-2px]"
               onClick={onSelect}
               onAuxClick={(event) => {
                 if (event.button === 1) {
@@ -129,7 +129,7 @@ function ChatTabItem({
         aria-label={`Close ${title} tab`}
         onClick={onClose}
         className={cn(
-          "mr-1 rounded p-1 hover:bg-accent",
+          "mr-0.5 rounded p-0.5 hover:bg-accent",
           !active &&
             "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100",
         )}
@@ -192,7 +192,7 @@ export function ChatTabs() {
   };
   if (!enabled) return null;
   return (
-    <div className="relative z-10 flex shrink-0 items-center border-b border-border bg-background/90 pt-1 [-webkit-app-region:no-drag]">
+    <div className="relative z-10 flex shrink-0 items-center border-b border-border bg-background/90 pt-0.5 [-webkit-app-region:no-drag]">
       <div
         role="tablist"
         aria-label="Open chats"
@@ -241,7 +241,7 @@ export function ChatTabs() {
       <button
         type="button"
         aria-label="New chat"
-        className="mx-1 rounded-md p-2 hover:bg-accent"
+        className="mx-1 rounded-md p-1.5 hover:bg-accent"
         onClick={() => openCommandPalette({ open: "new-thread-in" })}
       >
         <PlusIcon className="size-4" />
