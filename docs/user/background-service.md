@@ -7,26 +7,27 @@ to keep a terminal open.
 
 Run these commands on the machine that will host KCA (see
 [remote access](./remote-access.md#getting-the-kca-command) for getting the
-`kca` command):
+`kca` command). With a global install (`npm install -g kca-code`) the bare
+`kca ...` form works; otherwise prefix with `npx kca-code@latest`:
 
-| Task                            | Command                 |
-| ------------------------------- | ----------------------- |
-| Install and start               | `kca service install`   |
-| Inspect status and log location | `kca service status`    |
-| Update or repair                | `kca service update`    |
-| Stop and remove from startup    | `kca service uninstall` |
+| Task                            | Command                                 |
+| ------------------------------- | --------------------------------------- |
+| Install and start               | `npx kca-code@latest service install`   |
+| Inspect status and log location | `npx kca-code@latest service status`    |
+| Update or repair                | `npx kca-code@latest service update`    |
+| Stop and remove from startup    | `npx kca-code@latest service uninstall` |
 
 Uninstalling the service leaves your projects, threads, and settings intact.
 
-Install and update use the version of the CLI you invoke, so update your
-checkout (or reinstall the package) first when you want a newer server. An
-older CLI refuses to replace a newer service unless you explicitly add
-`--allow-downgrade`.
+Install and update use the version of the CLI you invoke. For nightly, use
+`npx kca-code@nightly service update`; replace `nightly` with an exact version
+to pin one. An older CLI refuses to replace a newer service unless you
+explicitly add `--allow-downgrade`.
 
-Service install and repair download the pinned `kca-code` package from npm,
-which is unpublished until the one-time publish described in the
-[README](../../README.md#docs--development) happens. Until then, run the
-server from your checkout (or Docker) instead of the background service.
+Service install and repair download the pinned `kca-code` package from npm
+(published with each release), so the systemd unit points at a real install —
+never the ephemeral npx cache. If the machine has no npm registry access, run
+the server from your checkout (or Docker) instead of the background service.
 
 Updating restarts the server. Finish active work first, and wait for any remote
 update already in progress. To match a remote client's version, follow
