@@ -69,6 +69,7 @@ import type { DraftComposerAttachment } from "../../lib/composerImages";
 import { CHAT_CONTENT_MAX_WIDTH, type LayoutVariant } from "../../lib/layout";
 import { IOS_NAV_BAR_HEIGHT } from "../../lib/layoutMetrics";
 import { editPendingThreadMessage } from "../../state/edit-pending-thread-message";
+import { useServerConfigs } from "../../state/entities";
 import type { QueuedThreadMessage } from "../../state/thread-outbox-model";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import type {
@@ -841,12 +842,17 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
     feedTouchStartRef.current = null;
   }, []);
 
+  const serverConfigs = useServerConfigs();
+  const canEditThreadNote =
+    serverConfigs.get(props.environmentId)?.environment.capabilities.threadNotes === true;
+
   return (
     <View className="flex-1">
       <ThreadNoteCard
         environmentId={props.environmentId}
         threadId={props.selectedThread.id}
         note={props.selectedThread.note}
+        canEdit={canEditThreadNote}
       />
       {showContent ? (
         <View

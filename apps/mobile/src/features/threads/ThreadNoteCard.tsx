@@ -17,10 +17,12 @@ export function ThreadNoteCard({
   environmentId,
   threadId,
   note,
+  canEdit,
 }: {
   readonly environmentId: EnvironmentId;
   readonly threadId: ThreadId;
   readonly note: string | null | undefined;
+  readonly canEdit: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -67,7 +69,9 @@ export function ThreadNoteCard({
     ]);
   }, [environmentId, threadId, updateThreadMetadata]);
 
-  if ((note === null || note === undefined || note.length === 0) && !editing) return null;
+  if ((note === null || note === undefined || note.length === 0) && !editing && !canEdit)
+    return null;
+  const showEmptyAffordance = note === null || note === undefined || note.length === 0;
 
   const tooLong = draft.length > THREAD_NOTE_MAX_LENGTH;
 
@@ -76,7 +80,7 @@ export function ThreadNoteCard({
       <View className="flex-row items-center gap-1.5">
         <Text className="text-xs font-semibold text-adaptive-amber-700-300">Note</Text>
         <Text className="text-xs text-adaptive-amber-700-300">· only visible to you</Text>
-        {!editing ? (
+        {!editing && canEdit && !showEmptyAffordance ? (
           <View className="ml-auto flex-row items-center gap-3">
             <Pressable
               accessibilityRole="button"
@@ -137,6 +141,15 @@ export function ThreadNoteCard({
             </View>
           </View>
         </View>
+      ) : showEmptyAffordance ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add a note to this thread"
+          onPress={startEditing}
+          className="mt-1 flex-row items-center gap-1.5 rounded-lg border border-dashed border-adaptive-neutral-200-white-a6 px-2.5 py-2"
+        >
+          <Text className="text-sm text-adaptive-amber-700-300">Add a note…</Text>
+        </Pressable>
       ) : (
         <Text className="mt-1 text-sm">{note}</Text>
       )}

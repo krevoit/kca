@@ -319,7 +319,6 @@ import { resolveTimelineIsAtEnd } from "./chat/MessagesTimeline.logic";
 import { resolveComposerTimelineInset } from "./composerFooterLayout";
 import { ChatHeader } from "./chat/ChatHeader";
 import { ThreadNoteCard, useNoteEditorRequested } from "./chat/ThreadNoteCard";
-import { hasThreadNote } from "./threadActionMenu.logic";
 import { PanelLayoutControls, RightPanelMaximizeControl } from "./chat/PanelLayoutControls";
 import { expandedImageKey, type ExpandedImagePreview } from "./chat/ExpandedImagePreview";
 import { NoActiveThreadState } from "./NoActiveThreadState";
@@ -2101,6 +2100,9 @@ export default function ChatView(props: ChatViewProps) {
   ]);
   const activeEnvironment =
     activeThread == null ? null : (environmentById.get(activeThread.environmentId) ?? null);
+  const canEditThreadNote =
+    isServerThread &&
+    activeEnvironment?.serverConfig?.environment.capabilities.threadNotes === true;
   const activeEnvironmentConnectionPhase = activeEnvironment?.connection.phase ?? "available";
   const activeEnvironmentUnavailable =
     activeEnvironment !== null && activeEnvironmentConnectionPhase !== "connected";
@@ -7977,8 +7979,7 @@ export default function ChatView(props: ChatViewProps) {
               />
             </div>
             {/* Sticky user note: view-only, never part of agent context. */}
-            {isServerThread &&
-            (hasThreadNote(activeThread.note) || noteEditorOpenForActiveThread) ? (
+            {isServerThread ? (
               <ThreadNoteCard
                 key={activeThread.id}
                 environmentId={activeThread.environmentId}
@@ -7986,6 +7987,7 @@ export default function ChatView(props: ChatViewProps) {
                 threadKey={routeThreadKey}
                 note={activeThread.note}
                 editorRequested={noteEditorOpenForActiveThread}
+                canEdit={canEditThreadNote}
               />
             ) : null}
             {/* Messages Wrapper */}

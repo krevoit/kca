@@ -28,12 +28,14 @@ export function ThreadNoteCard({
   threadKey,
   note,
   editorRequested,
+  canEdit,
 }: {
   readonly environmentId: EnvironmentId;
   readonly threadId: ThreadId;
   readonly threadKey: string;
   readonly note: string | null | undefined;
   readonly editorRequested: boolean;
+  readonly canEdit: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -118,7 +120,8 @@ export function ThreadNoteCard({
     );
   }, [environmentId, threadId, updateThreadMetadata]);
 
-  if (!hasThreadNote(note) && !editorRequested && !editing) return null;
+  if (!hasThreadNote(note) && !editorRequested && !editing && !canEdit) return null;
+  const showEmptyAffordance = !hasThreadNote(note) && !editorRequested && !editing;
 
   const tooLong = draft.length > THREAD_NOTE_MAX_LENGTH;
 
@@ -131,7 +134,7 @@ export function ThreadNoteCard({
           <span className="font-normal text-amber-700/70 dark:text-amber-300/70">
             · only visible to you
           </span>
-          {!editing ? (
+          {!editing && canEdit ? (
             <span className="ml-auto flex items-center gap-1">
               <Button
                 variant="ghost"
@@ -205,6 +208,16 @@ export function ThreadNoteCard({
               </span>
             </div>
           </div>
+        ) : showEmptyAffordance ? (
+          <button
+            type="button"
+            aria-label="Add a note to this thread"
+            onClick={startEditing}
+            className="mt-1 flex w-full items-center gap-1.5 rounded-lg border border-dashed border-amber-500/40 px-2.5 py-2 text-left text-sm text-amber-700/80 transition-colors hover:bg-amber-500/10 dark:text-amber-300/80"
+          >
+            <StickyNoteIcon className="size-3.5 shrink-0" aria-hidden="true" />
+            Add a note…
+          </button>
         ) : (
           <p className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap text-sm">{note}</p>
         )}
