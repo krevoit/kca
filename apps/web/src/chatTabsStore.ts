@@ -29,10 +29,26 @@ export function closeChatTab(tabs: readonly ChatTab[], key: string) {
   return { tabs: remaining, next: remaining[Math.min(index, remaining.length - 1)] ?? null };
 }
 
+export function reorderChatTabs(
+  tabs: readonly ChatTab[],
+  fromKey: string,
+  toKey: string,
+): readonly ChatTab[] {
+  const fromIndex = tabs.findIndex((tab) => chatTabKey(tab) === fromKey);
+  const toIndex = tabs.findIndex((tab) => chatTabKey(tab) === toKey);
+  if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return tabs;
+  const next = [...tabs];
+  const [moved] = next.splice(fromIndex, 1);
+  if (!moved) return tabs;
+  next.splice(toIndex, 0, moved);
+  return next;
+}
+
 export const useChatTabsStore = create<{
   tabs: readonly ChatTab[];
   open: (tab: ChatTab) => void;
   close: (key: string) => void;
+  reorder: (fromKey: string, toKey: string) => void;
 }>()(
   persist(
     (set) => ({
@@ -43,6 +59,11 @@ export const useChatTabsStore = create<{
           return tabs === state.tabs ? state : { tabs };
         }),
       close: (key) => set((state) => ({ tabs: closeChatTab(state.tabs, key).tabs })),
+      reorder: (fromKey, toKey) =>
+        set((state) => {
+          const tabs = reorderChatTabs(state.tabs, fromKey, toKey);
+          return tabs === state.tabs ? state : { tabs };
+        }),
     }),
     {
       name: "kca.chat-tabs.v1",

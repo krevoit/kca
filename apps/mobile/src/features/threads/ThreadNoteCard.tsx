@@ -10,8 +10,9 @@ import { useAtomCommand } from "../../state/use-atom-command";
 /**
  * Sticky user note on a thread, mirroring the web ThreadNoteCard.
  *
- * View-only by construction: the note lives on thread metadata and no agent
- * path reads it.
+ * Collapsed to a chip by default; expands to view or edit. Kept slim so it
+ * never covers the composer. View-only by construction: the note lives on
+ * thread metadata and no agent path reads it.
  */
 export function ThreadNoteCard({
   environmentId,
@@ -24,6 +25,7 @@ export function ThreadNoteCard({
   readonly note: string | null | undefined;
   readonly canEdit: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const updateThreadMetadata = useAtomCommand(threadEnvironment.updateMetadata, {
@@ -33,6 +35,7 @@ export function ThreadNoteCard({
   const startEditing = useCallback(() => {
     setDraft(note ?? "");
     setEditing(true);
+    setExpanded(true);
   }, [note]);
 
   const saveNote = useCallback(async () => {
@@ -62,6 +65,7 @@ export function ThreadNoteCard({
                 return;
               }
               setEditing(false);
+              setExpanded(false);
             },
           );
         },
@@ -72,32 +76,65 @@ export function ThreadNoteCard({
   if ((note === null || note === undefined || note.length === 0) && !editing && !canEdit)
     return null;
   const showEmptyAffordance = note === null || note === undefined || note.length === 0;
+  const hasNote = !showEmptyAffordance;
 
   const tooLong = draft.length > THREAD_NOTE_MAX_LENGTH;
 
+  if (!expanded && !editing) {
+    // Collapsed chip, mirroring web. Visible whenever there is something to
+    // open: an existing note, or the add affordance on capable servers.
+    // Slim by design so it never covers the feed or composer.
+    if (!hasNote && !canEdit) return null;
+    return (
+      <View className="mx-4 mb-1.5 flex-row">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={hasNote ? "Open note" : "Add a note to this thread"}
+          onPress={() => (hasNote ? setExpanded(true) : startEditing())}
+          className="flex-row items-center gap-1.5 rounded-full border border-adaptive-amber-500-a45 px-2.5 py-1.5"
+        >
+          <Text className="text-xs font-medium text-adaptive-amber-700-300">
+            {hasNote ? "● Note" : "+ Note"}
+          </Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
-    <View className="mx-4 mb-2 rounded-2xl border border-adaptive-neutral-200-white-a6 bg-adaptive-amber-500-a12-a16 px-3.5 py-2.5">
+    <View className="mx-4 mb-1.5 max-h-72 rounded-xl border border-adaptive-neutral-200-white-a6 bg-adaptive-amber-500-a12-a16 px-3 py-2">
       <View className="flex-row items-center gap-1.5">
         <Text className="text-xs font-semibold text-adaptive-amber-700-300">Note</Text>
-        <Text className="text-xs text-adaptive-amber-700-300">· only visible to you</Text>
-        {!editing && canEdit && !showEmptyAffordance ? (
-          <View className="ml-auto flex-row items-center gap-3">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Edit note"
-              onPress={startEditing}
-            >
-              <Text className="text-xs font-medium text-adaptive-amber-700-300">Edit</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Remove note"
-              onPress={removeNote}
-            >
-              <Text className="text-xs font-medium text-adaptive-amber-700-300">Remove</Text>
-            </Pressable>
-          </View>
-        ) : null}
+        <View className="ml-auto flex-row items-center gap-2">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close note"
+            onPress={() => {
+              setExpanded(false);
+              setEditing(false);
+            }}
+          >
+            <Text className="text-xs font-medium text-muted-foreground">Close</Text>
+          </Pressable>
+          {!editing && canEdit && !showEmptyAffordance ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Edit note"
+                onPress={startEditing}
+              >
+                <Text className="text-xs font-medium text-adaptive-amber-700-300">Edit</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Remove note"
+                onPress={removeNote}
+              >
+                <Text className="text-xs font-medium text-adaptive-amber-700-300">Remove</Text>
+              </Pressable>
+            </>
+          ) : null}
+        </View>
       </View>
       {editing ? (
         <View>
@@ -124,7 +161,10 @@ export function ThreadNoteCard({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Cancel editing note"
-                onPress={() => setEditing(false)}
+                onPress={() => {
+                  setEditing(false);
+                  if (!hasNote) setExpanded(false);
+                }}
               >
                 <Text className="text-xs font-medium text-muted-foreground">Cancel</Text>
               </Pressable>

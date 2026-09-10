@@ -33,13 +33,13 @@ export interface Preferences {
   readonly projectGroupingMode?: SidebarProjectGroupingMode;
   /**
    * Device-local mirror of the web `legacySidebarEnabled` setting. Mobile has
-   * no client-settings sync, so the legacy grouped thread list is opted into
+   * no client-settings sync, so the grouped thread list is opted into
    * per device. Deliberately a fresh key (was `threadListV2Enabled`, an
    * opt-out): sanitizing drops the old key, so every device resets to the
    * default flat list — see `resolveThreadListV2Enabled`.
    */
   readonly legacyThreadListEnabled?: boolean;
-  /** Device-local counterpart of desktop's `planModeEnabled` legacy flag. */
+  /** Device-local counterpart of desktop's `planModeEnabled` flag. */
   readonly planModeEnabled?: boolean;
   /** Fresh keys reset both shelves to collapsed when users update. */
   readonly threadListSettledShelfExpanded?: boolean;

@@ -5,8 +5,8 @@ import { mobilePreferencesAtom } from "../../state/preferences";
 import { resolveThreadListV2Enabled } from "./threadListV2";
 
 /**
- * Resolved Thread List v2 state: on unless the device opted into the legacy
- * grouped list (Settings → Legacy). Every consumer must read through this
+ * Resolved Thread List v2 state: on unless the device opted into the grouped
+ * list (Settings → General → Sidebar). Every consumer must read through this
  * rather than the raw preference, which is undefined until explicitly chosen.
  */
 export function useThreadListV2Enabled(): boolean {

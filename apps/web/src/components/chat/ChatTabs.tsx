@@ -1,7 +1,7 @@
 import { Tooltip, TooltipTrigger, TooltipPopup } from "../ui/tooltip";
 import { useEnvironment } from "../../state/environments";
 import { useAtomValue } from "@effect/atom-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { PlusIcon, XIcon } from "lucide-react";
 import { shouldShowInstanceBadge } from "@t3tools/client-runtime/state/provider-instance-display";
@@ -29,6 +29,9 @@ function ChatTabItem({
   providerEntryByInstanceId,
   onSelect,
   onClose,
+  onReorder,
+  dragging,
+  onDragStateChange,
 }: {
   tab: ChatTab;
   active: boolean;
@@ -36,6 +39,9 @@ function ChatTabItem({
   providerEntryByInstanceId: ReadonlyMap<string, ProviderInstanceEntry>;
   onSelect: () => void;
   onClose: () => void;
+  onReorder: (fromKey: string, toKey: string) => void;
+  dragging: boolean;
+  onDragStateChange: (key: string | null) => void;
 }) {
   const shell = useThreadShell(tab);
   const environment = useEnvironment(tab.environmentId);
@@ -65,13 +71,33 @@ function ChatTabItem({
     ? getTriggerDisplayModelLabel(selectedModel)
     : (shell?.modelSelection.model ?? null);
   const tooltip = `${title}${modelLabel ? ` · ${modelLabel}` : ""} · ${environment?.label ?? "Disconnected environment"}`;
+  const tabKey = chatTabKey(tab);
   return (
     <div
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.setData("text/plain", tabKey);
+        event.dataTransfer.effectAllowed = "move";
+        onDragStateChange(tabKey);
+      }}
+      onDragEnd={() => onDragStateChange(null)}
+      onDragOver={(event) => {
+        // Must preventDefault to allow drop.
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        const fromKey = event.dataTransfer.getData("text/plain");
+        onDragStateChange(null);
+        if (fromKey && fromKey !== tabKey) onReorder(fromKey, tabKey);
+      }}
       className={cn(
-        "group relative flex shrink-0 items-center rounded-md border transition-colors",
+        "group relative flex shrink-0 cursor-grab items-center rounded-md border transition-colors active:cursor-grabbing",
         active
           ? "border-border bg-card text-foreground shadow-sm"
           : "border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+        dragging && "opacity-50",
       )}
     >
       {active ? (
@@ -165,6 +191,8 @@ export function ChatTabs() {
   const tabs = useChatTabsStore((state) => state.tabs);
   const open = useChatTabsStore((state) => state.open);
   const close = useChatTabsStore((state) => state.close);
+  const reorder = useChatTabsStore((state) => state.reorder);
+  const [draggingKey, setDraggingKey] = useState<string | null>(null);
   const navigate = useNavigate();
   const serverConfigs = useAtomValue(environmentServerConfigsAtom);
   // Same per-environment provider lookup the sidebar rows use: default
@@ -195,10 +223,27 @@ export function ChatTabs() {
     <div className="relative z-10 flex shrink-0 items-center border-b border-border bg-background/90 pt-0.5 [-webkit-app-region:no-drag]">
       <div
         role="tablist"
-        aria-label="Open chats"
+        aria-label="Open chats. Drag tabs to reorder, or press Control with arrow keys to move the focused tab."
         className="flex min-w-0 flex-1 gap-1 overflow-x-auto px-2"
         onKeyDown={(event) => {
           const index = tabs.findIndex((tab) => chatTabKey(tab) === key);
+          // Ctrl/Cmd + arrows reorders the focused tab instead of navigating.
+          if ((event.ctrlKey || event.metaKey) && index >= 0) {
+            const targetIndex =
+              event.key === "ArrowRight" ? index + 1 : event.key === "ArrowLeft" ? index - 1 : -1;
+            if (targetIndex < 0 || targetIndex >= tabs.length) return;
+            const from = tabs[index];
+            const to = tabs[targetIndex];
+            if (!from || !to) return;
+            event.preventDefault();
+            reorder(chatTabKey(from), chatTabKey(to));
+            requestAnimationFrame(() => {
+              const buttons =
+                event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+              buttons[targetIndex]?.focus();
+            });
+            return;
+          }
           const next =
             event.key === "ArrowRight"
               ? (index + 1) % tabs.length
@@ -226,6 +271,9 @@ export function ChatTabs() {
               providerEntriesByEnvironment.get(tab.environmentId) ?? EMPTY_PROVIDER_ENTRIES
             }
             onSelect={() => select(tab)}
+            onReorder={reorder}
+            dragging={draggingKey !== null && draggingKey === chatTabKey(tab)}
+            onDragStateChange={setDraggingKey}
             onClose={() => {
               const removed = chatTabKey(tab);
               const { next } = closeChatTab(tabs, removed);

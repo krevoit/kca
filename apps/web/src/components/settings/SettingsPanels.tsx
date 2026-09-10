@@ -1866,14 +1866,9 @@ function AutoSettleDaysInput({
   );
 }
 
-// The legacy rows sit behind the fold, so a settings-search jump has to
+// The legacy row sits behind the fold, so a settings-search jump has to
 // expand the section before its target can mount and scroll.
-const LEGACY_FEATURE_TARGET_IDS: ReadonlySet<string> = new Set([
-  "legacy-plan-mode",
-  "legacy-context-window-indicator",
-  "legacy-token-streaming",
-  "legacy-sidebar",
-]);
+const LEGACY_FEATURE_TARGET_IDS: ReadonlySet<string> = new Set(["legacy-plan-mode"]);
 
 /**
  * Retired features kept only for users who still depend on them. Collapsed by
@@ -1945,59 +1940,6 @@ function LegacyFeaturesSection() {
                     });
                   }}
                   aria-label="Plan mode (legacy)"
-                />
-              }
-            />
-            <SettingsRow
-              {...searchableSetting("legacy-context-window-indicator")}
-              description="Shows context window usage as a circular indicator in the composer."
-              control={
-                <Switch
-                  checked={settings.contextWindowMeterEnabled}
-                  onCheckedChange={(checked) =>
-                    updateSettings({ contextWindowMeterEnabled: Boolean(checked) })
-                  }
-                  aria-label="Context window indicator (legacy)"
-                />
-              }
-            />
-            <SettingsRow
-              serverScoped
-              {...searchableSetting("legacy-token-streaming")}
-              description="Stream output token by token. This legacy mode is slower and harder to follow."
-              control={
-                <Switch
-                  checked={settings.enableLegacyTokenStreaming}
-                  onCheckedChange={(checked) => {
-                    if (!checked) {
-                      updateSettings({ enableLegacyTokenStreaming: false });
-                      return;
-                    }
-                    void (async () => {
-                      const api = readLocalApi();
-                      const confirmed = await (api ?? ensureLocalApi()).dialogs.confirm(
-                        [
-                          "Turn on token-by-token output?",
-                          "It is significantly slower than the default buffered output and hurts the reading experience. This switch exists only for backwards compatibility.",
-                        ].join("\n"),
-                      );
-                      if (confirmed) updateSettings({ enableLegacyTokenStreaming: true });
-                    })();
-                  }}
-                  aria-label="Stream token by token (legacy)"
-                />
-              }
-            />
-            <SettingsRow
-              {...searchableSetting("legacy-sidebar")}
-              description="Restore per-project thread trees instead of the default flat sidebar."
-              control={
-                <Switch
-                  checked={settings.legacySidebarEnabled}
-                  onCheckedChange={(checked) =>
-                    updateSettings({ legacySidebarEnabled: Boolean(checked) })
-                  }
-                  aria-label="Sidebar (legacy)"
                 />
               }
             />
@@ -2110,6 +2052,32 @@ export function GeneralSettingsPanel() {
                 });
               }}
               aria-label="Project grouping"
+            />
+          }
+        />
+
+        <SettingsRow
+          {...searchableSetting("sidebar")}
+          description="Show threads grouped by project instead of a flat list."
+          resetAction={
+            settings.legacySidebarEnabled !== DEFAULT_UNIFIED_SETTINGS.legacySidebarEnabled ? (
+              <SettingResetButton
+                label="sidebar"
+                onClick={() =>
+                  updateSettings({
+                    legacySidebarEnabled: DEFAULT_UNIFIED_SETTINGS.legacySidebarEnabled,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <Switch
+              checked={settings.legacySidebarEnabled}
+              onCheckedChange={(checked) =>
+                updateSettings({ legacySidebarEnabled: Boolean(checked) })
+              }
+              aria-label="Sidebar"
             />
           }
         />
@@ -2368,6 +2336,74 @@ export function GeneralSettingsPanel() {
                 updateSettings({ composerCollapseOnScroll: Boolean(checked) })
               }
               aria-label="Collapse composer on scroll"
+            />
+          }
+        />
+
+        <SettingsRow
+          {...searchableSetting("context-window-indicator")}
+          description="Shows context window usage as a circular indicator in the composer."
+          resetAction={
+            settings.contextWindowMeterEnabled !==
+            DEFAULT_UNIFIED_SETTINGS.contextWindowMeterEnabled ? (
+              <SettingResetButton
+                label="context window indicator"
+                onClick={() =>
+                  updateSettings({
+                    contextWindowMeterEnabled: DEFAULT_UNIFIED_SETTINGS.contextWindowMeterEnabled,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <Switch
+              checked={settings.contextWindowMeterEnabled}
+              onCheckedChange={(checked) =>
+                updateSettings({ contextWindowMeterEnabled: Boolean(checked) })
+              }
+              aria-label="Context window indicator"
+            />
+          }
+        />
+
+        <SettingsRow
+          serverScoped
+          {...searchableSetting("token-streaming")}
+          description="Stream output token by token. Slower and harder to follow than buffered output."
+          resetAction={
+            settings.enableLegacyTokenStreaming !==
+            DEFAULT_UNIFIED_SETTINGS.enableLegacyTokenStreaming ? (
+              <SettingResetButton
+                label="stream token by token"
+                onClick={() =>
+                  updateSettings({
+                    enableLegacyTokenStreaming: DEFAULT_UNIFIED_SETTINGS.enableLegacyTokenStreaming,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <Switch
+              checked={settings.enableLegacyTokenStreaming}
+              onCheckedChange={(checked) => {
+                if (!checked) {
+                  updateSettings({ enableLegacyTokenStreaming: false });
+                  return;
+                }
+                void (async () => {
+                  const api = readLocalApi();
+                  const confirmed = await (api ?? ensureLocalApi()).dialogs.confirm(
+                    [
+                      "Turn on token-by-token output?",
+                      "It is significantly slower than the default buffered output and hurts the reading experience.",
+                    ].join("\n"),
+                  );
+                  if (confirmed) updateSettings({ enableLegacyTokenStreaming: true });
+                })();
+              }}
+              aria-label="Stream token by token"
             />
           }
         />
