@@ -7,6 +7,7 @@ import { finalizePromotedDraftThreadByRef, useComposerDraftStore } from "../comp
 import { resolveThreadRouteRef, resolveThreadRouteRenderState } from "../threadRoutes";
 import { resolveThreadSyncPhase } from "../threadSync";
 import { ChatWorkspace } from "../components/chat/ChatWorkspace";
+import { useSidebarPendingFileDropStore } from "../sidebarPendingFileDropStore";
 import {
   useEnvironmentThreadRefs,
   useThreadDetail,
@@ -62,8 +63,15 @@ function ChatThreadRouteView() {
       return;
     }
 
-    if (renderState === "missing" && environmentHasAnyThreads) {
-      void navigate({ to: "/", replace: true });
+    // Navigation already resolved onto this path, so a drop aimed here
+    // passed its landing check; once the thread reads as missing it can
+    // never be attached, release it even when there is nowhere to redirect.
+    if (renderState === "missing") {
+      const { clearPendingFileDropsForThread } = useSidebarPendingFileDropStore.getState();
+      clearPendingFileDropsForThread(threadRef);
+      if (environmentHasAnyThreads) {
+        void navigate({ to: "/", replace: true });
+      }
     }
   }, [bootstrapComplete, environmentHasAnyThreads, navigate, renderState, threadRef]);
 

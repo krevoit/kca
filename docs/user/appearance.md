@@ -15,8 +15,15 @@ remove the image to return to your theme. The image stays on that client.
 
 Enable **Chat tabs** to keep opened chats in a tab bar. Tabs are restored on reload
 and can include chats from different environments. Closing a tab leaves the chat
-and any running agents intact; reopen it from the sidebar. Use the arrow keys
-while focused on the tab bar to switch chats.
+and any running agents intact; reopen it from the sidebar. Drag tabs to reorder,
+use the arrow keys while focused on the tab bar to switch chats, or hold Control
+(or Command) with the arrows to move the focused tab.
+
+On Android 12 or newer, choose the **Material You** theme in Appearance to use colors from
+your wallpaper. Selecting another theme replaces those colors. Like other themes, Material You
+can be selected separately for light and dark appearances.
+Android also offers **Material You Layout**, which changes shapes and spacing independently
+of the selected theme.
 
 ## Motion
 
