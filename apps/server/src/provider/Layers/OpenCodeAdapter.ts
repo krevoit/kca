@@ -362,6 +362,13 @@ interface OpenCodeSessionContext {
    */
   sessionTokenTotals: OpenCodeSessionTokenTotals;
   /**
+   * Most recent `step-finish` tokens. A step's request already carries the
+   * full context at that point, so the latest step (not the sum of steps) is
+   * the window signal for `thread.token-usage.updated`. Cleared on
+   * `session.compacted`; absent on resumed sessions until new steps arrive.
+   */
+  lastWindowTokens: OpenCodeStepUsage["tokens"] | undefined;
+  /**
    * Model of the most recent assistant message, for resolving that model's
    * context limit. Seeded from the session at startup (covers resumed
    * sessions) and refreshed as assistant messages arrive (covers in-session
@@ -497,9 +504,25 @@ function makeOpenCodeSessionTokenTotals(
 }
 
 /**
+ * Window usage for one step: the step's request already carries the full
+ * context at that point, so the latest step (not the sum of steps) is the
+ * window signal. Summing step inputs double-counts history, because every
+ * step's input already contains the prior context.
+ */
+function openCodeStepWindowTokens(tokens: OpenCodeStepUsage["tokens"]): number {
+  return tokens.input + tokens.cache.read + tokens.cache.write + tokens.output + tokens.reasoning;
+}
+
+function openCodeSessionTotalTokens(totals: OpenCodeSessionTokenTotals): number {
+  return totals.inputTokens + totals.outputTokens;
+}
+
+/**
  * Step token shapes across the SDK (`step-finish` parts, session `tokens`)
  * share `{ input, output, reasoning, cache: { read, write } }`. Folds one
  * step into session totals with the same math as the per-turn accumulator.
+ * Totals are cumulative throughput, reported as `totalProcessedTokens` — the
+ * window signal comes from the latest step (see `openCodeStepWindowTokens`).
  */
 function foldOpenCodeSessionStepUsage(
   totals: OpenCodeSessionTokenTotals,
@@ -1227,19 +1250,39 @@ export function makeOpenCodeAdapter(
 
     const buildOpenCodeThreadUsageSnapshot = (
       totals: OpenCodeSessionTokenTotals,
+      lastWindow: OpenCodeStepUsage["tokens"] | undefined,
       lastTurn: TurnTokenUsage | undefined,
       maxTokens: number | undefined,
     ): ThreadTokenUsageSnapshot | undefined => {
-      const usedTokens = totals.inputTokens + totals.outputTokens;
+      // Window signal is the latest step, mirroring Codex `last` vs `total`
+      // semantics. Resumed sessions have no step yet, so they fall back to
+      // the seeded cumulative totals until new steps arrive and correct them.
+      const cumulativeTokens = openCodeSessionTotalTokens(totals);
+      const windowTokens =
+        lastWindow !== undefined ? openCodeStepWindowTokens(lastWindow) : cumulativeTokens;
+      // Clamp like Claude: the meter pins at 100% instead of rendering
+      // used > max (e.g. "1.2m/200k").
+      const usedTokens = maxTokens !== undefined ? Math.min(windowTokens, maxTokens) : windowTokens;
       if (usedTokens <= 0) return undefined;
+      const windowInput =
+        lastWindow !== undefined
+          ? lastWindow.input + lastWindow.cache.read + lastWindow.cache.write
+          : totals.inputTokens;
+      const windowCached =
+        lastWindow !== undefined ? lastWindow.cache.read : totals.cachedInputTokens;
+      const windowOutput =
+        lastWindow !== undefined ? lastWindow.output + lastWindow.reasoning : totals.outputTokens;
+      const windowReasoning =
+        lastWindow !== undefined ? lastWindow.reasoning : totals.reasoningTokens;
       const lastInput = lastTurn?.inputTokens;
       const lastOutput = lastTurn?.outputTokens;
       return {
         usedTokens,
-        ...(totals.inputTokens > 0 ? { inputTokens: totals.inputTokens } : {}),
-        ...(totals.cachedInputTokens > 0 ? { cachedInputTokens: totals.cachedInputTokens } : {}),
-        ...(totals.outputTokens > 0 ? { outputTokens: totals.outputTokens } : {}),
-        ...(totals.reasoningTokens > 0 ? { reasoningOutputTokens: totals.reasoningTokens } : {}),
+        ...(cumulativeTokens > usedTokens ? { totalProcessedTokens: cumulativeTokens } : {}),
+        ...(windowInput > 0 ? { inputTokens: windowInput } : {}),
+        ...(windowCached > 0 ? { cachedInputTokens: windowCached } : {}),
+        ...(windowOutput > 0 ? { outputTokens: windowOutput } : {}),
+        ...(windowReasoning > 0 ? { reasoningOutputTokens: windowReasoning } : {}),
         ...(lastInput !== undefined && lastOutput !== undefined
           ? { lastUsedTokens: lastInput + lastOutput }
           : {}),
@@ -1257,19 +1300,20 @@ export function makeOpenCodeAdapter(
     };
 
     /**
-     * Projects session totals as `thread.token-usage.updated` — the event the
-     * context meter reads. Mirrors the Codex adapter's emission; a missing
-     * model limit only drops the percentage, never the counts.
+     * Projects the latest window usage as `thread.token-usage.updated` — the
+     * event the context meter reads. Mirrors the Codex adapter's emission; a
+     * missing model limit only drops the percentage, never the counts.
      */
     const emitOpenCodeThreadUsage = Effect.fn("emitOpenCodeThreadUsage")(function* (
       context: OpenCodeSessionContext,
       input: { readonly turnId?: TurnId; readonly lastTurn?: TurnTokenUsage },
     ) {
-      if (context.sessionTokenTotals.inputTokens + context.sessionTokenTotals.outputTokens <= 0) {
+      if (openCodeSessionTotalTokens(context.sessionTokenTotals) <= 0) {
         return;
       }
       const snapshot = buildOpenCodeThreadUsageSnapshot(
         context.sessionTokenTotals,
+        context.lastWindowTokens,
         input.lastTurn,
         yield* resolveOpenCodeModelContextLimit(context, context.lastAssistantModel),
       );
@@ -2470,10 +2514,13 @@ export function makeOpenCodeAdapter(
           break;
         }
         case "session.compacted": {
-          // The window rebases on compaction: drop the running totals so the
-          // meter restarts from the fresh window instead of pinning at the
-          // pre-compaction high. Totals rebuild as new steps arrive.
+          // The window rebases on compaction: drop the running totals and the
+          // latest-step window signal so the meter restarts from the fresh
+          // window instead of pinning at the pre-compaction high. Both
+          // rebuild as new steps arrive; the zero below is a transient reset
+          // until the next step paints the true post-compact size.
           context.sessionTokenTotals = makeOpenCodeSessionTokenTotals();
+          context.lastWindowTokens = undefined;
           const maxTokens = yield* resolveOpenCodeModelContextLimit(
             context,
             context.lastAssistantModel,
@@ -2568,6 +2615,7 @@ export function makeOpenCodeAdapter(
                   for (const step of steps.values()) {
                     accumulateOpenCodeStepUsage(usage, step);
                     foldOpenCodeSessionStepUsage(context.sessionTokenTotals, step.tokens);
+                    context.lastWindowTokens = step.tokens;
                   }
                 }
                 usage.unresolvedStepsByMessageId.delete(event.properties.info.id);
@@ -2646,6 +2694,7 @@ export function makeOpenCodeAdapter(
             if (ownership === "owned") {
               accumulateOpenCodeStepUsage(usage, part);
               foldOpenCodeSessionStepUsage(context.sessionTokenTotals, part.tokens);
+              context.lastWindowTokens = part.tokens;
             } else if (
               ownership === "unknown" ||
               (ownership === undefined &&
@@ -3214,6 +3263,7 @@ export function makeOpenCodeAdapter(
           // none. Either way the meter starts from server truth instead of a
           // fabricated zero on a large existing session.
           sessionTokenTotals: seedOpenCodeSessionTokenTotals(started.openCodeSession.tokens),
+          lastWindowTokens: undefined,
           lastAssistantModel:
             typeof started.openCodeSession.model?.id === "string" &&
             started.openCodeSession.model.id.length > 0 &&
@@ -3325,6 +3375,13 @@ export function makeOpenCodeAdapter(
           issue: "OpenCode model selection must use the 'provider/model' format.",
         });
       }
+      // Seed the context-limit lookup from the requested model immediately so
+      // the first usage emission already carries maxTokens, instead of
+      // waiting for the first assistant message to report its model.
+      context.lastAssistantModel = {
+        providerID: parsedModel.providerID,
+        modelID: parsedModel.modelID,
+      };
 
       const text = input.input?.trim();
       // OpenCode ingests images, text, and PDFs natively; formats its model

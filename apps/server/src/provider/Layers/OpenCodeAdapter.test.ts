@@ -2806,6 +2806,154 @@ it.layer(OpenCodeAdapterTestLayer)("OpenCodeAdapterLive", (it) => {
     }),
   );
 
+  it.effect("reports the latest step as window usage with cumulative total processed", () =>
+    Effect.gen(function* () {
+      const adapter = yield* OpenCodeAdapter;
+      const threadId = asThreadId("thread-token-usage-window");
+      const busy = promiseWithResolvers<unknown>();
+      const assistantMessage = promiseWithResolvers<unknown>();
+      const firstStep = promiseWithResolvers<unknown>();
+      const secondStep = promiseWithResolvers<unknown>();
+      const idle = promiseWithResolvers<unknown>();
+      runtimeMock.state.subscribedEvents = [
+        busy.promise,
+        assistantMessage.promise,
+        firstStep.promise,
+        secondStep.promise,
+        idle.promise,
+      ];
+      runtimeMock.state.providerList = [
+        {
+          id: "opencode-go",
+          models: {
+            "muse-spark": {
+              id: "muse-spark",
+              limit: { context: 200000, output: 8192 },
+            },
+          },
+        },
+      ];
+
+      const usageFiber = yield* adapter.streamEvents.pipe(
+        Stream.filter(
+          (event) => event.threadId === threadId && event.type === "thread.token-usage.updated",
+        ),
+        Stream.take(1),
+        Stream.runCollect,
+        Effect.forkChild,
+      );
+      yield* adapter.startSession({
+        provider: ProviderDriverKind.make("opencode"),
+        threadId,
+        runtimeMode: "full-access",
+      });
+
+      const send = yield* adapter
+        .sendTurn({
+          threadId,
+          input: "Take two steps",
+          modelSelection: createModelSelection(
+            ProviderInstanceId.make("opencode"),
+            "opencode-go/muse-spark",
+          ),
+        })
+        .pipe(Effect.forkChild);
+      busy.resolve({
+        id: "evt-usage-window-busy",
+        type: "session.status",
+        properties: {
+          sessionID: "http://127.0.0.1:9999/session",
+          status: { type: "busy" },
+        },
+      });
+      yield* Fiber.join(send);
+      const promptMessageId = (runtimeMock.state.promptCalls[0] as { messageID: string }).messageID;
+      assistantMessage.resolve({
+        id: "evt-usage-window-assistant",
+        type: "message.updated",
+        properties: {
+          sessionID: "http://127.0.0.1:9999/session",
+          info: {
+            id: "assistant-usage-window",
+            role: "assistant",
+            parentID: promptMessageId,
+            modelID: "muse-spark",
+            providerID: "opencode-go",
+          },
+        },
+      });
+      firstStep.resolve({
+        id: "evt-usage-window-step-1",
+        type: "message.part.updated",
+        properties: {
+          sessionID: "http://127.0.0.1:9999/session",
+          part: {
+            id: "step-usage-window-1",
+            sessionID: "http://127.0.0.1:9999/session",
+            messageID: "assistant-usage-window",
+            type: "step-finish",
+            reason: "tool-calls",
+            cost: 0,
+            tokens: {
+              input: 100,
+              output: 20,
+              reasoning: 5,
+              cache: { read: 40, write: 10 },
+            },
+          },
+        },
+      });
+      secondStep.resolve({
+        id: "evt-usage-window-step-2",
+        type: "message.part.updated",
+        properties: {
+          sessionID: "http://127.0.0.1:9999/session",
+          part: {
+            id: "step-usage-window-2",
+            sessionID: "http://127.0.0.1:9999/session",
+            messageID: "assistant-usage-window",
+            type: "step-finish",
+            reason: "stop",
+            cost: 0,
+            tokens: {
+              input: 1000,
+              output: 100,
+              reasoning: 10,
+              cache: { read: 500, write: 50 },
+            },
+          },
+        },
+      });
+      idle.resolve({
+        id: "evt-usage-window-idle",
+        type: "session.status",
+        properties: {
+          sessionID: "http://127.0.0.1:9999/session",
+          status: { type: "idle" },
+        },
+      });
+
+      const collected = Array.from(yield* Fiber.join(usageFiber).pipe(Effect.timeout("5 seconds")));
+      NodeAssert.equal(collected.length, 1);
+      const event = collected[0];
+      NodeAssert.equal(event?.type, "thread.token-usage.updated");
+      if (event?.type !== "thread.token-usage.updated") {
+        throw new Error("expected a thread.token-usage.updated event");
+      }
+      // Window is the latest step, not the sum: (1000 + 500 + 50) input,
+      // (100 + 10) output. The cumulative 175 + 1660 rides separately.
+      NodeAssert.equal(event.payload.usage.usedTokens, 1660);
+      NodeAssert.equal(event.payload.usage.totalProcessedTokens, 1835);
+      NodeAssert.equal(event.payload.usage.inputTokens, 1550);
+      NodeAssert.equal(event.payload.usage.cachedInputTokens, 500);
+      NodeAssert.equal(event.payload.usage.outputTokens, 110);
+      NodeAssert.equal(event.payload.usage.reasoningOutputTokens, 10);
+      NodeAssert.equal(event.payload.usage.maxTokens, 200000);
+
+      yield* adapter.stopSession(threadId);
+    }),
+  );
+
   it.effect("paints session usage on start from the resumed session totals", () =>
     Effect.gen(function* () {
       const adapter = yield* OpenCodeAdapter;
