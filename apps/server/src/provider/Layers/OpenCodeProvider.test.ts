@@ -297,6 +297,49 @@ it.layer(testLayer)("checkOpenCodeProviderStatus", (it) => {
     }),
   );
 
+  it.effect("carries the model context limit into the snapshot when reported", () =>
+    Effect.gen(function* () {
+      runtimeMock.state.inventory = {
+        providerList: {
+          connected: ["opencode-go"],
+          all: [
+            {
+              id: "opencode-go",
+              name: "Console Go",
+              models: {
+                "muse-spark-1.3-contributor": {
+                  id: "muse-spark-1.3-contributor",
+                  name: "Muse Spark 1.3 Contributor",
+                  limit: { context: 200000, output: 8192 },
+                  variants: {},
+                },
+                "unlimited-model": {
+                  id: "unlimited-model",
+                  name: "Unlimited Model",
+                  variants: {},
+                },
+              },
+            },
+          ],
+          default: {},
+        },
+        agents: [],
+      };
+
+      const snapshot = yield* checkProvider(makeOpenCodeSettings());
+      const limited = snapshot.models.find(
+        (entry) => entry.slug === "opencode-go/muse-spark-1.3-contributor",
+      );
+      NodeAssert.ok(limited);
+      NodeAssert.equal(limited.contextWindowTokens, 200000);
+      const unlimited = snapshot.models.find(
+        (entry) => entry.slug === "opencode-go/unlimited-model",
+      );
+      NodeAssert.ok(unlimited);
+      NodeAssert.equal(unlimited.contextWindowTokens, undefined);
+    }),
+  );
+
   it.effect("includes OpenCode skills in the provider snapshot", () =>
     Effect.gen(function* () {
       runtimeMock.state.inventory = {

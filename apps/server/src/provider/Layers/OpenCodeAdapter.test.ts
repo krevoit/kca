@@ -129,6 +129,11 @@ const runtimeMock = {
     questionListImplementation: null as (() => Promise<Array<QuestionRequest>>) | null,
     sessionUpdateCalls: [] as Array<{ sessionID: string; permission: unknown }>,
     forkCalls: [] as Array<{ sessionID: string; directory?: string }>,
+    providerListCalls: 0,
+    providerList: [] as Array<{
+      id: string;
+      models: Record<string, { id: string; limit?: { context: number; output: number } }>;
+    }>,
   },
   reset() {
     this.state.startCalls.length = 0;
@@ -184,6 +189,8 @@ const runtimeMock = {
     this.state.questionListImplementation = null;
     this.state.sessionUpdateCalls.length = 0;
     this.state.forkCalls.length = 0;
+    this.state.providerListCalls = 0;
+    this.state.providerList = [];
   },
 };
 
@@ -232,6 +239,12 @@ const OpenCodeRuntimeTestDouble: OpenCodeRuntimeShape = {
   runOpenCodeCommand: () => Effect.succeed({ stdout: "", stderr: "", code: 0 }),
   createOpenCodeSdkClient: ({ baseUrl, serverPassword }) =>
     ({
+      provider: {
+        list: async () => {
+          runtimeMock.state.providerListCalls += 1;
+          return { data: { all: runtimeMock.state.providerList } };
+        },
+      },
       session: {
         create: async (input: Record<string, unknown>) => {
           runtimeMock.state.sessionCreateUrls.push(baseUrl);
@@ -1071,7 +1084,7 @@ it.layer(OpenCodeAdapterTestLayer)("OpenCodeAdapterLive", (it) => {
       });
       const eventsFiber = yield* adapter.streamEvents.pipe(
         Stream.filter((event) => event.threadId === threadId),
-        Stream.take(3),
+        Stream.take(4),
         Stream.runCollect,
         Effect.forkChild,
       );
@@ -1089,10 +1102,19 @@ it.layer(OpenCodeAdapterTestLayer)("OpenCodeAdapterLive", (it) => {
       NodeAssert.equal(summarizeCall.modelID, "gpt-5");
       const events = Array.from(yield* Fiber.join(eventsFiber));
       yield* adapter.stopSession(threadId);
-      const compacted = events.some(
+      const usageIndex = events.findIndex((event) => event.type === "thread.token-usage.updated");
+      const compactedIndex = events.findIndex(
         (event) => event.type === "thread.state.changed" && event.payload.state === "compacted",
       );
-      NodeAssert.equal(compacted, true);
+      NodeAssert.ok(usageIndex >= 0 && usageIndex < compactedIndex);
+      const usage = events[usageIndex];
+      NodeAssert.equal(usage?.type, "thread.token-usage.updated");
+      if (usage?.type !== "thread.token-usage.updated") {
+        throw new Error("expected a thread.token-usage.updated event");
+      }
+      // Compaction rebases the running totals: the meter restarts from zero.
+      NodeAssert.equal(usage.payload.usage.usedTokens, 0);
+      NodeAssert.equal(compactedIndex >= 0, true);
     }),
   );
   it.effect("falls back to a fresh session when the persisted session is gone", () =>
@@ -2658,6 +2680,128 @@ it.layer(OpenCodeAdapterTestLayer)("OpenCodeAdapterLive", (it) => {
     }),
   );
 
+  it.effect("emits thread token usage with the model context limit", () =>
+    Effect.gen(function* () {
+      const adapter = yield* OpenCodeAdapter;
+      const threadId = asThreadId("thread-token-usage-context-limit");
+      const busy = promiseWithResolvers<unknown>();
+      const assistantMessage = promiseWithResolvers<unknown>();
+      const step = promiseWithResolvers<unknown>();
+      const idle = promiseWithResolvers<unknown>();
+      runtimeMock.state.subscribedEvents = [
+        busy.promise,
+        assistantMessage.promise,
+        step.promise,
+        idle.promise,
+      ];
+      runtimeMock.state.providerList = [
+        {
+          id: "opencode-go",
+          models: {
+            "muse-spark-1.3-contributor": {
+              id: "muse-spark-1.3-contributor",
+              limit: { context: 200000, output: 8192 },
+            },
+          },
+        },
+      ];
+
+      const usageFiber = yield* adapter.streamEvents.pipe(
+        Stream.filter(
+          (event) => event.threadId === threadId && event.type === "thread.token-usage.updated",
+        ),
+        Stream.take(1),
+        Stream.runCollect,
+        Effect.forkChild,
+      );
+      yield* adapter.startSession({
+        provider: ProviderDriverKind.make("opencode"),
+        threadId,
+        runtimeMode: "full-access",
+      });
+
+      const send = yield* adapter
+        .sendTurn({
+          threadId,
+          input: "Count some tokens",
+          modelSelection: createModelSelection(
+            ProviderInstanceId.make("opencode"),
+            "opencode-go/muse-spark-1.3-contributor",
+          ),
+        })
+        .pipe(Effect.forkChild);
+      busy.resolve({
+        id: "evt-usage-limit-busy",
+        type: "session.status",
+        properties: {
+          sessionID: "http://127.0.0.1:9999/session",
+          status: { type: "busy" },
+        },
+      });
+      yield* Fiber.join(send);
+      const promptMessageId = (runtimeMock.state.promptCalls[0] as { messageID: string }).messageID;
+      assistantMessage.resolve({
+        id: "evt-usage-limit-assistant",
+        type: "message.updated",
+        properties: {
+          sessionID: "http://127.0.0.1:9999/session",
+          info: {
+            id: "assistant-usage-limit",
+            role: "assistant",
+            parentID: promptMessageId,
+            modelID: "muse-spark-1.3-contributor",
+            providerID: "opencode-go",
+          },
+        },
+      });
+      step.resolve({
+        id: "evt-usage-limit-step",
+        type: "message.part.updated",
+        properties: {
+          sessionID: "http://127.0.0.1:9999/session",
+          part: {
+            id: "step-usage-limit",
+            sessionID: "http://127.0.0.1:9999/session",
+            messageID: "assistant-usage-limit",
+            type: "step-finish",
+            reason: "stop",
+            cost: 0,
+            tokens: {
+              input: 100,
+              output: 20,
+              reasoning: 5,
+              cache: { read: 40, write: 10 },
+            },
+          },
+        },
+      });
+      idle.resolve({
+        id: "evt-usage-limit-idle",
+        type: "session.status",
+        properties: {
+          sessionID: "http://127.0.0.1:9999/session",
+          status: { type: "idle" },
+        },
+      });
+
+      const collected = Array.from(yield* Fiber.join(usageFiber).pipe(Effect.timeout("5 seconds")));
+      NodeAssert.equal(collected.length, 1);
+      const event = collected[0];
+      NodeAssert.equal(event?.type, "thread.token-usage.updated");
+      if (event?.type !== "thread.token-usage.updated") {
+        throw new Error("expected a thread.token-usage.updated event");
+      }
+      // input + cache read/write, output + reasoning.
+      NodeAssert.equal(event.payload.usage.usedTokens, 175);
+      NodeAssert.equal(event.payload.usage.maxTokens, 200000);
+      NodeAssert.equal(event.payload.usage.compactsAutomatically, true);
+      NodeAssert.equal(event.payload.usage.lastUsedTokens, 175);
+      NodeAssert.equal(runtimeMock.state.providerListCalls, 1);
+
+      yield* adapter.stopSession(threadId);
+    }),
+  );
+
   it.effect("ignores a stale admission status response after the next turn starts", () =>
     Effect.gen(function* () {
       const adapter = yield* OpenCodeAdapter;
@@ -3690,7 +3834,8 @@ it.layer(OpenCodeAdapterTestLayer)("OpenCodeAdapterLive", (it) => {
       const late = yield* Fiber.join(lateFiber);
       NodeAssert.deepEqual(
         late.map((event) => event.type),
-        ["thread.state.changed"],
+        // Compaction rebases the running totals first, then reports compacted.
+        ["thread.token-usage.updated", "thread.state.changed"],
       );
       yield* adapter.stopSession(threadId);
     }),
@@ -7127,7 +7272,8 @@ it.layer(OpenCodeAdapterTestLayer)("OpenCodeAdapterLive", (it) => {
       lateProgress.resolve({ ...todoEvent, id: "evt-late-todos" });
       NodeAssert.deepEqual(
         (yield* Fiber.join(lateEventsFiber)).map((event) => event.type),
-        ["thread.state.changed"],
+        // Compaction rebases the running totals first, then reports compacted.
+        ["thread.token-usage.updated", "thread.state.changed"],
       );
       yield* adapter.stopSession(threadId);
     }),

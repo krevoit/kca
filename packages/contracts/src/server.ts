@@ -77,6 +77,12 @@ export const ServerProviderModel = Schema.Struct({
   isDefault: Schema.optional(Schema.Boolean),
   isLegacy: Schema.optional(Schema.Boolean),
   capabilities: Schema.NullOr(ModelCapabilities),
+  /**
+   * Known context window in tokens, when the driver reports one (e.g.
+   * OpenCode's model `limit.context`). Absent means unknown — clients render
+   * raw usage without a percentage rather than guessing.
+   */
+  contextWindowTokens: Schema.optional(PositiveInt),
 });
 export type ServerProviderModel = typeof ServerProviderModel.Type;
 

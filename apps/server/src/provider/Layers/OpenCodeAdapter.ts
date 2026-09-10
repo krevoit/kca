@@ -9,6 +9,7 @@ import {
   RuntimeItemId,
   RuntimeRequestId,
   ThreadId,
+  type ThreadTokenUsageSnapshot,
   type ToolLifecycleItemType,
   type TurnTokenUsage,
   TurnId,
@@ -49,6 +50,7 @@ import {
   buildOpenCodePermissionRules,
   OpenCodeRuntime,
   OpenCodeRuntimeError,
+  openCodeModelLimitContext,
   openCodeQuestionId,
   openCodeRuntimeErrorDetail,
   parseOpenCodeModelSlug,
@@ -351,6 +353,27 @@ interface OpenCodeSessionContext {
   // until native removal or session teardown, but do not retain other part payloads.
   readonly textPartsByMessageId: Map<string, Map<string, OpenCodeTextPartState>>;
   turnTokenUsage: OpenCodeTurnTokenUsageAccumulator | undefined;
+  /**
+   * Running token totals for the whole OpenCode session (this turn plus every
+   * earlier one the server reports). Feeds `thread.token-usage.updated`, the
+   * same event Codex/Claude drive the context meter from. An approximation of
+   * window usage: it grows monotonically within a session and rebases on
+   * `session.compacted`, mirroring what the OpenCode CLI reports.
+   */
+  sessionTokenTotals: OpenCodeSessionTokenTotals;
+  /**
+   * Model of the most recent assistant message, for resolving that model's
+   * context limit. Seeded from the session at startup (covers resumed
+   * sessions) and refreshed as assistant messages arrive (covers in-session
+   * model switches, where `session.model` would be stale).
+   */
+  lastAssistantModel: { readonly providerID: string; readonly modelID: string } | undefined;
+  /**
+   * `limit.context` by `providerID/modelID`, fetched once per session from
+   * the session's own OpenCode server. Missing entries (unknown models,
+   * lookup failures) stay absent so usage still emits without a percentage.
+   */
+  readonly modelContextLimitCache: Map<string, number | undefined>;
   activeTurnId: TurnId | undefined;
   activeAgent: string | undefined;
   activeVariant: string | undefined;
@@ -451,6 +474,67 @@ function takeOpenCodeTurnTokenUsage(
     reasoningTokens: Math.min(usage.outputTokens, usage.reasoningTokens),
     hasSubagents: usage.hasSubagents,
   };
+}
+
+interface OpenCodeSessionTokenTotals {
+  inputTokens: number;
+  cachedInputTokens: number;
+  cacheCreationTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+}
+
+function makeOpenCodeSessionTokenTotals(
+  seed?: Partial<OpenCodeSessionTokenTotals>,
+): OpenCodeSessionTokenTotals {
+  return {
+    inputTokens: seed?.inputTokens ?? 0,
+    cachedInputTokens: seed?.cachedInputTokens ?? 0,
+    cacheCreationTokens: seed?.cacheCreationTokens ?? 0,
+    outputTokens: seed?.outputTokens ?? 0,
+    reasoningTokens: seed?.reasoningTokens ?? 0,
+  };
+}
+
+/**
+ * Step token shapes across the SDK (`step-finish` parts, session `tokens`)
+ * share `{ input, output, reasoning, cache: { read, write } }`. Folds one
+ * step into session totals with the same math as the per-turn accumulator.
+ */
+function foldOpenCodeSessionStepUsage(
+  totals: OpenCodeSessionTokenTotals,
+  tokens: OpenCodeStepUsage["tokens"],
+): void {
+  totals.inputTokens += tokens.input + tokens.cache.read + tokens.cache.write;
+  totals.cachedInputTokens += tokens.cache.read;
+  totals.cacheCreationTokens += tokens.cache.write;
+  totals.outputTokens += tokens.output + tokens.reasoning;
+  totals.reasoningTokens += tokens.reasoning;
+}
+
+/**
+ * Seeds session totals from a session's reported cumulative tokens (present
+ * on resumed sessions). Absent or malformed stays zeroed: the totals rebuild
+ * as new steps arrive rather than starting from a fabricated baseline.
+ */
+function seedOpenCodeSessionTokenTotals(tokens: unknown): OpenCodeSessionTokenTotals {
+  if (typeof tokens !== "object" || tokens === null) {
+    return makeOpenCodeSessionTokenTotals();
+  }
+  const record = tokens as Record<string, unknown>;
+  const cache = record["cache"];
+  const cacheRecord =
+    typeof cache === "object" && cache !== null ? (cache as Record<string, unknown>) : {};
+  const finite = (value: unknown): number =>
+    typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
+  const totals = makeOpenCodeSessionTokenTotals();
+  foldOpenCodeSessionStepUsage(totals, {
+    input: finite(record["input"]),
+    output: finite(record["output"]),
+    reasoning: finite(record["reasoning"]),
+    cache: { read: finite(cacheRecord["read"]), write: finite(cacheRecord["write"]) },
+  });
+  return totals;
 }
 
 export interface OpenCodeAdapterLiveOptions {
@@ -1105,6 +1189,98 @@ export function makeOpenCodeAdapter(
       }
     });
 
+    /**
+     * Best-effort `limit.context` for a `providerID/modelID` pair, read from
+     * the session's own OpenCode server and cached per session. Failures (and
+     * SDK clients without `provider.list`, like older test doubles) resolve
+     * to absent so usage still emits without a percentage.
+     */
+    const resolveOpenCodeModelContextLimit = Effect.fn("resolveOpenCodeModelContextLimit")(
+      function* (
+        context: OpenCodeSessionContext,
+        model: { readonly providerID: string; readonly modelID: string } | undefined,
+      ) {
+        if (!model) return undefined;
+        const cacheKey = `${model.providerID}/${model.modelID}`;
+        if (context.modelContextLimitCache.has(cacheKey)) {
+          return context.modelContextLimitCache.get(cacheKey);
+        }
+        const list =
+          typeof context.client.provider?.list === "function"
+            ? context.client.provider.list
+            : undefined;
+        const limit = list
+          ? yield* runOpenCodeSdk("provider.list", (signal) => list(undefined, { signal })).pipe(
+              Effect.map((response) => {
+                const provider = (response.data?.all ?? []).find(
+                  (entry) => entry.id === model.providerID,
+                );
+                return openCodeModelLimitContext(provider?.models[model.modelID]);
+              }),
+              Effect.orElseSucceed(() => undefined),
+            )
+          : undefined;
+        context.modelContextLimitCache.set(cacheKey, limit);
+        return limit;
+      },
+    );
+
+    const buildOpenCodeThreadUsageSnapshot = (
+      totals: OpenCodeSessionTokenTotals,
+      lastTurn: TurnTokenUsage | undefined,
+      maxTokens: number | undefined,
+    ): ThreadTokenUsageSnapshot | undefined => {
+      const usedTokens = totals.inputTokens + totals.outputTokens;
+      if (usedTokens <= 0) return undefined;
+      const lastInput = lastTurn?.inputTokens;
+      const lastOutput = lastTurn?.outputTokens;
+      return {
+        usedTokens,
+        ...(totals.inputTokens > 0 ? { inputTokens: totals.inputTokens } : {}),
+        ...(totals.cachedInputTokens > 0 ? { cachedInputTokens: totals.cachedInputTokens } : {}),
+        ...(totals.outputTokens > 0 ? { outputTokens: totals.outputTokens } : {}),
+        ...(totals.reasoningTokens > 0 ? { reasoningOutputTokens: totals.reasoningTokens } : {}),
+        ...(lastInput !== undefined && lastOutput !== undefined
+          ? { lastUsedTokens: lastInput + lastOutput }
+          : {}),
+        ...(lastInput !== undefined ? { lastInputTokens: lastInput } : {}),
+        ...(lastTurn?.cachedInputTokens !== undefined
+          ? { lastCachedInputTokens: lastTurn.cachedInputTokens }
+          : {}),
+        ...(lastOutput !== undefined ? { lastOutputTokens: lastOutput } : {}),
+        ...(lastTurn?.reasoningTokens !== undefined
+          ? { lastReasoningOutputTokens: lastTurn.reasoningTokens }
+          : {}),
+        ...(maxTokens !== undefined ? { maxTokens } : {}),
+        compactsAutomatically: true,
+      };
+    };
+
+    /**
+     * Projects session totals as `thread.token-usage.updated` — the event the
+     * context meter reads. Mirrors the Codex adapter's emission; a missing
+     * model limit only drops the percentage, never the counts.
+     */
+    const emitOpenCodeThreadUsage = Effect.fn("emitOpenCodeThreadUsage")(function* (
+      context: OpenCodeSessionContext,
+      input: { readonly turnId?: TurnId; readonly lastTurn?: TurnTokenUsage },
+    ) {
+      const snapshot = buildOpenCodeThreadUsageSnapshot(
+        context.sessionTokenTotals,
+        input.lastTurn,
+        yield* resolveOpenCodeModelContextLimit(context, context.lastAssistantModel),
+      );
+      if (!snapshot) return;
+      yield* emit({
+        ...(yield* buildEventBase({
+          threadId: context.session.threadId,
+          ...(input.turnId ? { turnId: input.turnId } : {}),
+        })),
+        type: "thread.token-usage.updated",
+        payload: { usage: snapshot },
+      });
+    });
+
     const completeOpenCodeTurn = Effect.fn("completeOpenCodeTurn")(function* (
       context: OpenCodeSessionContext,
       turnId: TurnId,
@@ -1161,6 +1337,7 @@ export function makeOpenCodeAdapter(
           tokenUsage,
         },
       });
+      yield* emitOpenCodeThreadUsage(context, { turnId, lastTurn: tokenUsage });
     });
 
     const scheduleIdleReconciliation = Effect.fn("scheduleIdleReconciliation")(function* (
@@ -2290,6 +2467,28 @@ export function makeOpenCodeAdapter(
           break;
         }
         case "session.compacted": {
+          // The window rebases on compaction: drop the running totals so the
+          // meter restarts from the fresh window instead of pinning at the
+          // pre-compaction high. Totals rebuild as new steps arrive.
+          context.sessionTokenTotals = makeOpenCodeSessionTokenTotals();
+          const maxTokens = yield* resolveOpenCodeModelContextLimit(
+            context,
+            context.lastAssistantModel,
+          );
+          yield* emit({
+            ...(yield* buildEventBase({
+              threadId: context.session.threadId,
+              ...(turnId ? { turnId } : {}),
+            })),
+            type: "thread.token-usage.updated",
+            payload: {
+              usage: {
+                usedTokens: 0,
+                ...(maxTokens !== undefined ? { maxTokens } : {}),
+                compactsAutomatically: true,
+              },
+            },
+          });
           yield* emit({
             ...(yield* buildEventBase({
               threadId: context.session.threadId,
@@ -2329,6 +2528,16 @@ export function makeOpenCodeAdapter(
             context.textPartsByMessageId.delete(event.properties.info.id);
           }
           if (event.properties.info.role === "assistant") {
+            const infoModelID = event.properties.info.modelID;
+            const infoProviderID = event.properties.info.providerID;
+            if (
+              typeof infoModelID === "string" &&
+              infoModelID.length > 0 &&
+              typeof infoProviderID === "string" &&
+              infoProviderID.length > 0
+            ) {
+              context.lastAssistantModel = { providerID: infoProviderID, modelID: infoModelID };
+            }
             const usage = context.turnTokenUsage;
             const parentMessageId =
               typeof event.properties.info.parentID === "string" &&
@@ -2355,6 +2564,7 @@ export function makeOpenCodeAdapter(
                 if (ownership === "owned" && steps) {
                   for (const step of steps.values()) {
                     accumulateOpenCodeStepUsage(usage, step);
+                    foldOpenCodeSessionStepUsage(context.sessionTokenTotals, step.tokens);
                   }
                 }
                 usage.unresolvedStepsByMessageId.delete(event.properties.info.id);
@@ -2432,6 +2642,7 @@ export function makeOpenCodeAdapter(
             const ownership = usage.assistantOwnershipByMessageId.get(part.messageID);
             if (ownership === "owned") {
               accumulateOpenCodeStepUsage(usage, part);
+              foldOpenCodeSessionStepUsage(context.sessionTokenTotals, part.tokens);
             } else if (
               ownership === "unknown" ||
               (ownership === undefined &&
@@ -2688,6 +2899,10 @@ export function makeOpenCodeAdapter(
               class: "provider_error",
               detail: event.properties.error,
             },
+          });
+          yield* emitOpenCodeThreadUsage(context, {
+            ...(activeTurnId ? { turnId: activeTurnId } : {}),
+            ...(tokenUsage ? { lastTurn: tokenUsage } : {}),
           });
           if (terminalCancellation) {
             yield* Deferred.succeed(terminalCancellation.acknowledgment, undefined).pipe(
@@ -2992,6 +3207,21 @@ export function makeOpenCodeAdapter(
           textPartsByMessageId: new Map(),
           messageRoleById: new Map(),
           turnTokenUsage: undefined,
+          // Resumed sessions report cumulative tokens; fresh ones report
+          // none. Either way the meter starts from server truth instead of a
+          // fabricated zero on a large existing session.
+          sessionTokenTotals: seedOpenCodeSessionTokenTotals(started.openCodeSession.tokens),
+          lastAssistantModel:
+            typeof started.openCodeSession.model?.id === "string" &&
+            started.openCodeSession.model.id.length > 0 &&
+            typeof started.openCodeSession.model?.providerID === "string" &&
+            started.openCodeSession.model.providerID.length > 0
+              ? {
+                  providerID: started.openCodeSession.model.providerID,
+                  modelID: started.openCodeSession.model.id,
+                }
+              : undefined,
+          modelContextLimitCache: new Map(),
           activeTurnId: undefined,
           activeAgent: undefined,
           activeVariant: undefined,

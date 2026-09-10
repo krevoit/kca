@@ -3,6 +3,7 @@ import * as NodeAssert from "node:assert/strict";
 import { describe, it } from "vite-plus/test";
 
 import {
+  openCodeModelLimitContext,
   parseAgentListCliOutput,
   parseModelsCliOutput,
   parseSkillsCliOutput,
@@ -317,5 +318,30 @@ describe("toOpenCodeFileParts", () => {
       parts.map((part) => part.mime),
       ["application/pdf", "text/markdown", "image/png"],
     );
+  });
+});
+
+describe("openCodeModelLimitContext", () => {
+  it("reads the reported context limit", () => {
+    NodeAssert.equal(
+      openCodeModelLimitContext({ limit: { context: 200000, output: 8192 } }),
+      200000,
+    );
+  });
+
+  it("stays absent for missing or malformed limits", () => {
+    for (const model of [
+      {},
+      { limit: null },
+      { limit: {} },
+      { limit: { context: 0 } },
+      { limit: { context: -5 } },
+      { limit: { context: 1.5 } },
+      { limit: { context: "200000" } },
+      null,
+      "muse-spark",
+    ]) {
+      NodeAssert.equal(openCodeModelLimitContext(model), undefined);
+    }
   });
 });

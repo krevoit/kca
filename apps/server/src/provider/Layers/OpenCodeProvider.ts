@@ -22,6 +22,7 @@ import {
 import {
   MINIMUM_OPENCODE_VERSION,
   OpenCodeRuntime,
+  openCodeModelLimitContext,
   openCodeRuntimeErrorDetail,
   type OpenCodeInventory,
 } from "../opencodeRuntime.ts";
@@ -270,11 +271,13 @@ function flattenOpenCodeModels(input: OpenCodeInventory): ReadonlyArray<ServerPr
       }
 
       const subProvider = nonEmptyTrimmed(provider.name);
+      const contextWindowTokens = openCodeModelLimitContext(model);
       models.push({
         slug: `${provider.id}/${model.id}`,
         name,
         ...(subProvider ? { subProvider } : {}),
         isCustom: false,
+        ...(contextWindowTokens !== undefined ? { contextWindowTokens } : {}),
         capabilities: openCodeCapabilitiesForModel({
           providerID: provider.id,
           model,

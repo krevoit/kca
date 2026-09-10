@@ -419,6 +419,26 @@ export function parseOpenCodeModelSlug(
   };
 }
 
+/**
+ * Context window for an OpenCode inventory model, from its reported
+ * `limit.context`. Unknown (missing, non-integer, non-positive) stays absent
+ * so callers render raw usage instead of a fabricated percentage.
+ */
+export function openCodeModelLimitContext(model: unknown): number | undefined {
+  if (typeof model !== "object" || model === null) {
+    return undefined;
+  }
+  const limit = (model as { readonly limit?: unknown }).limit;
+  if (typeof limit !== "object" || limit === null) {
+    return undefined;
+  }
+  const context = (limit as { readonly context?: unknown }).context;
+  if (typeof context !== "number" || !Number.isInteger(context) || context < 1) {
+    return undefined;
+  }
+  return context;
+}
+
 export function openCodeQuestionId(
   index: number,
   question: QuestionRequest["questions"][number],
