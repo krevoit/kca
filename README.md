@@ -15,8 +15,17 @@ What the fork changes:
 - **Usage tab counts everything.** Every configured Codex home (all
   `CODEX_HOME` instances, including `archived_sessions`) is scanned, and usage
   is merged across all connected environments — including runs made outside KCA.
+  Free-tier models (`*-free`) are priced at their paid API rates instead of
+  showing $0.00.
 - **Familiar defaults.** Legacy per-project sidebar and the composer context
   meter are on by default, and the starry sidebar art shows on every channel.
+  The context meter now reports % and token counts for OpenCode models too,
+  same as Codex/Claude.
+- **Chat tabs with provider logos.** Open chats sit in a tab strip showing the
+  same provider icons as the sidebar, a running indicator, and model details
+  in the tooltip.
+- **Sticky thread notes.** Each thread has a private note on a bottom-left
+  chip, collapsed by default — visible only to you, never sent to the agent.
 - **Binaries from this repo.** Linux AppImage + `.deb` and Apple Silicon DMG
   are built by this repo's Release workflow, and the desktop app auto-updates
   from `krevoit/kca` releases.
