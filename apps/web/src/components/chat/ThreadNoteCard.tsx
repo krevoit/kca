@@ -30,6 +30,7 @@ export function ThreadNoteCard({
   note,
   editorRequested,
   canEdit,
+  bottomOffset,
 }: {
   readonly environmentId: EnvironmentId;
   readonly threadId: ThreadId;
@@ -37,6 +38,13 @@ export function ThreadNoteCard({
   readonly note: string | null | undefined;
   readonly editorRequested: boolean;
   readonly canEdit: boolean;
+  /**
+   * Distance from the bottom of the chat column in pixels. Callers pass the
+   * composer height plus clearance so the expanded card floats above the
+   * composer and grows upward into the timeline's end padding instead of
+   * overlapping the input. Falls back to the resting chip offset.
+   */
+  readonly bottomOffset?: number | undefined;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -148,7 +156,11 @@ export function ThreadNoteCard({
     // existing note, or the add affordance on capable servers.
     if (!hasThreadNote(note) && !canEdit) return null;
     return (
-      <div className="absolute bottom-4 left-4 z-30" data-thread-note={threadKey}>
+      <div
+        className="absolute bottom-4 left-4 z-30"
+        style={bottomOffset !== undefined ? { bottom: bottomOffset } : undefined}
+        data-thread-note={threadKey}
+      >
         <button
           type="button"
           aria-label={hasThreadNote(note) ? "Open note" : "Add a note to this thread"}
@@ -178,6 +190,7 @@ export function ThreadNoteCard({
   return (
     <div
       className="absolute bottom-4 left-4 z-30 w-80 max-w-[calc(100%-2rem)]"
+      style={bottomOffset !== undefined ? { bottom: bottomOffset } : undefined}
       data-thread-note={threadKey}
       onKeyDown={(event) => {
         if (event.key === "Escape" && !editing) {
