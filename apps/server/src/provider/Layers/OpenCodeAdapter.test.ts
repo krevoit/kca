@@ -121,6 +121,7 @@ const runtimeMock = {
     transientErrorSessionIds: new Set<string>(),
     sessionDirectoryById: new Map<string, string>(),
     sessionParentById: new Map<string, string>(),
+    sessionTokensById: new Map<string, unknown>(),
     pendingPermissions: [] as Array<PermissionRequest>,
     pendingQuestions: [] as Array<QuestionRequest>,
     permissionListCalls: 0,
@@ -181,6 +182,7 @@ const runtimeMock = {
     this.state.transientErrorSessionIds.clear();
     this.state.sessionDirectoryById.clear();
     this.state.sessionParentById.clear();
+    this.state.sessionTokensById.clear();
     this.state.pendingPermissions = [];
     this.state.pendingQuestions = [];
     this.state.permissionListCalls = 0;
@@ -274,6 +276,7 @@ const OpenCodeRuntimeTestDouble: OpenCodeRuntimeShape = {
           }
           const directory = runtimeMock.state.sessionDirectoryById.get(sessionID);
           const parentID = runtimeMock.state.sessionParentById.get(sessionID);
+          const tokens = runtimeMock.state.sessionTokensById.get(sessionID);
           return {
             data: {
               id: sessionID,
@@ -282,6 +285,7 @@ const OpenCodeRuntimeTestDouble: OpenCodeRuntimeShape = {
                 : {}),
               ...(directory ? { directory } : {}),
               ...(parentID ? { parentID } : {}),
+              ...(tokens ? { tokens } : {}),
             },
           };
         },
@@ -2797,6 +2801,49 @@ it.layer(OpenCodeAdapterTestLayer)("OpenCodeAdapterLive", (it) => {
       NodeAssert.equal(event.payload.usage.compactsAutomatically, true);
       NodeAssert.equal(event.payload.usage.lastUsedTokens, 175);
       NodeAssert.equal(runtimeMock.state.providerListCalls, 1);
+
+      yield* adapter.stopSession(threadId);
+    }),
+  );
+
+  it.effect("paints session usage on start from the resumed session totals", () =>
+    Effect.gen(function* () {
+      const adapter = yield* OpenCodeAdapter;
+      const threadId = asThreadId("thread-usage-baseline-on-start");
+      runtimeMock.state.sessionTokensById.set("ses_seeded", {
+        input: 1000,
+        output: 200,
+        reasoning: 50,
+        cache: { read: 400, write: 100 },
+      });
+
+      const usageFiber = yield* adapter.streamEvents.pipe(
+        Stream.filter(
+          (event) => event.threadId === threadId && event.type === "thread.token-usage.updated",
+        ),
+        Stream.take(1),
+        Stream.runCollect,
+        Effect.forkChild,
+      );
+      yield* adapter.startSession({
+        provider: ProviderDriverKind.make("opencode"),
+        threadId,
+        runtimeMode: "full-access",
+        resumeCursor: { schemaVersion: 1, sessionId: "ses_seeded" },
+      });
+
+      const collected = Array.from(yield* Fiber.join(usageFiber).pipe(Effect.timeout("5 seconds")));
+      NodeAssert.equal(collected.length, 1);
+      const event = collected[0];
+      NodeAssert.equal(event?.type, "thread.token-usage.updated");
+      if (event?.type !== "thread.token-usage.updated") {
+        throw new Error("expected a thread.token-usage.updated event");
+      }
+      // (1000 + 400 + 100) input, (200 + 50) output. No model on the
+      // resumed session, so no limit lookup is attempted.
+      NodeAssert.equal(event.payload.usage.usedTokens, 1750);
+      NodeAssert.equal(event.payload.usage.maxTokens, undefined);
+      NodeAssert.equal(runtimeMock.state.providerListCalls, 0);
 
       yield* adapter.stopSession(threadId);
     }),

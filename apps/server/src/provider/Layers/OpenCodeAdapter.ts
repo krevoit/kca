@@ -1265,6 +1265,9 @@ export function makeOpenCodeAdapter(
       context: OpenCodeSessionContext,
       input: { readonly turnId?: TurnId; readonly lastTurn?: TurnTokenUsage },
     ) {
+      if (context.sessionTokenTotals.inputTokens + context.sessionTokenTotals.outputTokens <= 0) {
+        return;
+      }
       const snapshot = buildOpenCodeThreadUsageSnapshot(
         context.sessionTokenTotals,
         input.lastTurn,
@@ -3246,6 +3249,10 @@ export function makeOpenCodeAdapter(
           return (yield* awaitOpenCodeContextReady(raceWinner)).session;
         }
         sessions.set(input.threadId, context);
+        // Paint the meter immediately on open: resumed sessions seed totals
+        // from the server, so existing chats show usage without waiting for
+        // the next completed turn. Fresh sessions seed zero and stay silent.
+        yield* emitOpenCodeThreadUsage(context, {});
         const cleanupStartingContext = closeStartingOpenCodeContext(context, started.created).pipe(
           Effect.ensuring(Effect.sync(() => deleteContextIfCurrent(context))),
         );
