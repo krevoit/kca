@@ -262,6 +262,30 @@ function trimText(value: string | undefined | null): string | undefined {
   return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 
+/**
+ * Quota-exhaustion signals in OpenCode retry messages. Retrying these is
+ * futile — the user must upgrade, top up, or wait for a reset — so the turn
+ * fails immediately instead of riding OpenCode's backoff. Transient rate
+ * limits ("Rate limit exceeded, retrying…") deliberately do NOT match: those
+ * resolve by waiting. Exported for unit testing.
+ */
+const OPENCODE_QUOTA_EXHAUSTED_PATTERNS = [
+  /free[^.]{0,40}usage[^.]{0,40}exceed/i,
+  /usage[^.]{0,40}exceed[^.]*(subscribe|quota|plan|upgrade|billing)/i,
+  /subscribe to \w+/i,
+  /quota[^.]*(exceed|exhaust|deplet)/i,
+  /insufficient[^.]*(credit|quota|balance|fund)/i,
+  /billing/i,
+  /payment required/i,
+];
+
+export function isOpenCodeQuotaExhaustedMessage(message: unknown): boolean {
+  if (typeof message !== "string" || message.trim().length === 0) {
+    return false;
+  }
+  return OPENCODE_QUOTA_EXHAUSTED_PATTERNS.some((pattern) => pattern.test(message));
+}
+
 function openCodeEventSessionId(event: OpenCodeSubscribedEvent): string | undefined {
   const properties = "properties" in event ? event.properties : undefined;
   if (!properties || typeof properties !== "object") {
@@ -1385,6 +1409,81 @@ export function makeOpenCodeAdapter(
         },
       });
       yield* emitOpenCodeThreadUsage(context, { turnId, lastTurn: tokenUsage });
+    });
+
+    /**
+     * Ends the turn as failed with a provider message (quota exhaustion,
+     * non-retryable errors). Mirrors the `session.error` termination: clears
+     * the active turn, surfaces `turn.completed` failed + `runtime.error`,
+     * and paints final usage — without waiting for OpenCode to stop retrying.
+     */
+    const failOpenCodeTurn = Effect.fn("failOpenCodeTurn")(function* (
+      context: OpenCodeSessionContext,
+      input: {
+        readonly turnId: TurnId | undefined;
+        readonly message: string;
+        readonly raw: unknown;
+      },
+    ) {
+      yield* cancelIdleReconciliation(context);
+      const activeTurnId = input.turnId ?? context.activeTurnId;
+      const cancellation = context.cancellation;
+      const terminalCancellation =
+        activeTurnId !== undefined && cancellation?.turnId === activeTurnId
+          ? cancellation
+          : undefined;
+      if (terminalCancellation) {
+        terminalCancellation.turnSettled = true;
+        terminalCancellation.acknowledged = true;
+      }
+      const tokenUsage = activeTurnId ? takeOpenCodeTurnTokenUsage(context, false) : undefined;
+      context.activeTurnId = undefined;
+      context.activeAgent = undefined;
+      context.activeVariant = undefined;
+      context.reconcileIdleStatus = false;
+      yield* schedulePendingRequestRecovery(context);
+      yield* updateProviderSession(
+        context,
+        {
+          status: "error",
+          lastError: input.message,
+        },
+        { clearActiveTurnId: true },
+      );
+      if (activeTurnId) {
+        yield* emit({
+          ...(yield* buildEventBase({
+            threadId: context.session.threadId,
+            turnId: activeTurnId,
+            raw: input.raw,
+          })),
+          type: "turn.completed",
+          payload: {
+            state: "failed",
+            errorMessage: input.message,
+            tokenUsage,
+          },
+        });
+      }
+      yield* emit({
+        ...(yield* buildEventBase({
+          threadId: context.session.threadId,
+          raw: input.raw,
+        })),
+        type: "runtime.error",
+        payload: {
+          message: input.message,
+          class: "provider_error",
+          detail: input.raw,
+        },
+      });
+      yield* emitOpenCodeThreadUsage(context, {
+        ...(activeTurnId ? { turnId: activeTurnId } : {}),
+        ...(tokenUsage ? { lastTurn: tokenUsage } : {}),
+      });
+      if (terminalCancellation) {
+        yield* Deferred.succeed(terminalCancellation.acknowledgment, undefined).pipe(Effect.ignore);
+      }
     });
 
     const scheduleIdleReconciliation = Effect.fn("scheduleIdleReconciliation")(function* (
@@ -2844,6 +2943,18 @@ export function makeOpenCodeAdapter(
           }
 
           if (event.properties.status.type === "retry") {
+            const retryMessage = event.properties.status.message;
+            if (isOpenCodeQuotaExhaustedMessage(retryMessage)) {
+              // Quota errors never resolve by waiting (e.g. "Free usage
+              // exceeded, subscribe to Go"): fail the turn now instead of
+              // riding OpenCode's retry backoff with a spinning indicator.
+              yield* failOpenCodeTurn(context, {
+                turnId,
+                message: trimText(retryMessage) ?? retryMessage,
+                raw: event,
+              });
+              break;
+            }
             yield* emit({
               ...(yield* buildEventBase({
                 threadId: context.session.threadId,

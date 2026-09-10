@@ -44,6 +44,7 @@ import {
 } from "../opencodeRuntime.ts";
 import {
   isOpenCodeNotFound,
+  isOpenCodeQuotaExhaustedMessage,
   isSameOpenCodeDirectory,
   makeOpenCodeAdapter,
   mergeOpenCodeAssistantText,
@@ -2949,6 +2950,79 @@ it.layer(OpenCodeAdapterTestLayer)("OpenCodeAdapterLive", (it) => {
       NodeAssert.equal(event.payload.usage.outputTokens, 110);
       NodeAssert.equal(event.payload.usage.reasoningOutputTokens, 10);
       NodeAssert.equal(event.payload.usage.maxTokens, 200000);
+
+      yield* adapter.stopSession(threadId);
+    }),
+  );
+
+  it.effect("fails the turn on quota-exhausted retries instead of waiting", () =>
+    Effect.gen(function* () {
+      const adapter = yield* OpenCodeAdapter;
+      const threadId = asThreadId("thread-quota-retry-fails-turn");
+      const busy = promiseWithResolvers<unknown>();
+      const quotaRetry = promiseWithResolvers<unknown>();
+      runtimeMock.state.subscribedEvents = [busy.promise, quotaRetry.promise];
+
+      // Single collector: stream subscriptions share consumption, so one
+      // take(N) fiber must gather every event before filtering. Five events
+      // flow for this thread: session/thread/turn started, then the failed
+      // turn.completed and runtime.error from the quota retry.
+      const eventsFiber = yield* adapter.streamEvents.pipe(
+        Stream.filter((event) => event.threadId === threadId),
+        Stream.take(5),
+        Stream.runCollect,
+        Effect.forkChild,
+      );
+      yield* adapter.startSession({
+        provider: ProviderDriverKind.make("opencode"),
+        threadId,
+        runtimeMode: "full-access",
+      });
+
+      const send = yield* adapter
+        .sendTurn({
+          threadId,
+          input: "Use the free tier",
+          modelSelection: createModelSelection(
+            ProviderInstanceId.make("opencode"),
+            "opencode-go/muse-spark",
+          ),
+        })
+        .pipe(Effect.forkChild);
+      busy.resolve({
+        id: "evt-quota-retry-busy",
+        type: "session.status",
+        properties: {
+          sessionID: "http://127.0.0.1:9999/session",
+          status: { type: "busy" },
+        },
+      });
+      yield* Fiber.join(send);
+      quotaRetry.resolve({
+        id: "evt-quota-retry",
+        type: "session.status",
+        properties: {
+          sessionID: "http://127.0.0.1:9999/session",
+          status: {
+            type: "retry",
+            attempt: 1,
+            message: "Free usage exceeded, subscribe to Go",
+            next: 5000,
+          },
+        },
+      });
+
+      const events = Array.from(yield* Fiber.join(eventsFiber));
+      const turnEvent = events.find((event) => event.type === "turn.completed");
+      NodeAssert.equal(turnEvent?.type, "turn.completed");
+      if (turnEvent?.type !== "turn.completed") {
+        throw new Error("expected a turn.completed event");
+      }
+      NodeAssert.equal(turnEvent.payload.state, "failed");
+      NodeAssert.equal(turnEvent.payload.errorMessage, "Free usage exceeded, subscribe to Go");
+
+      const errorEvent = events.find((event) => event.type === "runtime.error");
+      NodeAssert.equal(errorEvent?.type, "runtime.error");
 
       yield* adapter.stopSession(threadId);
     }),
@@ -6796,6 +6870,34 @@ it.layer(OpenCodeAdapterTestLayer)("OpenCodeAdapterLive", (it) => {
       NodeAssert.equal(isOpenCodeNotFound({ cause: { response: { status: 401 } } }), false);
       NodeAssert.equal(isOpenCodeNotFound(new Error("network error (no response)")), false);
       NodeAssert.equal(isOpenCodeNotFound(undefined), false);
+    }),
+  );
+
+  it.effect("flags quota-exhaustion retry messages but not transient rate limits", () =>
+    Effect.sync(() => {
+      NodeAssert.equal(
+        isOpenCodeQuotaExhaustedMessage("Free usage exceeded, subscribe to Go"),
+        true,
+      );
+      NodeAssert.equal(
+        isOpenCodeQuotaExhaustedMessage("Usage exceeded, subscribe to a plan to continue"),
+        true,
+      );
+      NodeAssert.equal(
+        isOpenCodeQuotaExhaustedMessage("quota exhausted for this billing period"),
+        true,
+      );
+      NodeAssert.equal(
+        isOpenCodeQuotaExhaustedMessage("Insufficient credits, please top up"),
+        true,
+      );
+      // Transient rate limits resolve by waiting, so they keep retrying.
+      NodeAssert.equal(
+        isOpenCodeQuotaExhaustedMessage("Rate limit exceeded, retrying in 12s"),
+        false,
+      );
+      NodeAssert.equal(isOpenCodeQuotaExhaustedMessage(""), false);
+      NodeAssert.equal(isOpenCodeQuotaExhaustedMessage(undefined), false);
     }),
   );
 
