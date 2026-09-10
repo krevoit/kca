@@ -20,15 +20,21 @@ What the fork changes:
 - **Familiar defaults.** Legacy per-project sidebar and the composer context
   meter are on by default, and the starry sidebar art shows on every channel.
   The context meter now reports % and token counts for OpenCode models too,
-  same as Codex/Claude.
+  same as Codex/Claude: usage is the latest step's window footprint (not an
+  ever-growing sum), clamped at 100%, with the cumulative total shown
+  separately. Quota errors ("Free usage exceeded, subscribe to Go") fail the
+  turn immediately instead of retrying with a spinner.
 - **Chat tabs with provider logos.** Open chats sit in a tab strip showing the
   same provider icons as the sidebar, a running indicator, and model details
   in the tooltip.
 - **Sticky thread notes.** Each thread has a private note on a bottom-left
   chip, collapsed by default — visible only to you, never sent to the agent.
+  The expanded card opens vertically (narrower, taller) instead of covering
+  the chat beside it.
 - **Binaries from this repo.** Linux AppImage + `.deb` and Apple Silicon DMG
   are built by this repo's Release workflow, and the desktop app auto-updates
-  from `krevoit/kca` releases.
+  from `krevoit/kca` releases. Server self-update and remote-install messages
+  reference the `kca-code` npm package (not upstream `t3`).
 
 ## 0. Providers first
 
