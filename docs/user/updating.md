@@ -31,8 +31,7 @@ The offered action depends on how the server runs:
 | **Update the desktop app** | Update the desktop app on the machine running the server, then reopen it if needed.                                                                                                             |
 | **Copy update command**    | Stop the command-line server on its host and relaunch with the copied command, keeping your usual startup options.                                                                              |
 
-For a background service, update your checkout to the matching version on the
-host, then run its CLI:
+For a background service, run its CLI on the host:
 
 ```sh
 kca service update
@@ -40,14 +39,11 @@ kca service update
 
 The notice names the version to match. An older
 service launcher may require this local update before it supports remote updates
-and rollback. Service updates download the pinned `kca-code` package from npm,
-which is unpublished until the one-time publish described in the
-[README](../../README.md#docs--development) happens — until then, prefer
-foreground servers or Docker on hosts you manage. There is no npm channel:
-the `kca` command always comes from your local checkout (or the Docker image /
-desktop bundle).
+and rollback. Service updates download the pinned `kca-code` package from npm
+(published with each release). If the host has no npm registry access, prefer
+foreground servers or Docker on hosts you manage.
 
-For a foreground server, stop it and relaunch from the updated checkout with
+For a foreground server, stop it and relaunch it updated with
 your usual options (`kca serve`, preserving flags such as `--host` or
 `--tailscale-serve`). See
 [background services](./background-service.md) for service management.
