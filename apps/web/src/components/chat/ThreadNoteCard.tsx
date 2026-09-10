@@ -30,7 +30,6 @@ export function ThreadNoteCard({
   note,
   editorRequested,
   canEdit,
-  bottomOffset,
 }: {
   readonly environmentId: EnvironmentId;
   readonly threadId: ThreadId;
@@ -38,13 +37,6 @@ export function ThreadNoteCard({
   readonly note: string | null | undefined;
   readonly editorRequested: boolean;
   readonly canEdit: boolean;
-  /**
-   * Distance from the bottom of the chat column in pixels. Callers pass the
-   * composer height plus clearance so the expanded card floats above the
-   * composer and grows upward into the timeline's end padding instead of
-   * overlapping the input. Falls back to the resting chip offset.
-   */
-  readonly bottomOffset?: number | undefined;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -156,11 +148,7 @@ export function ThreadNoteCard({
     // existing note, or the add affordance on capable servers.
     if (!hasThreadNote(note) && !canEdit) return null;
     return (
-      <div
-        className="absolute bottom-4 left-4 z-30"
-        style={bottomOffset !== undefined ? { bottom: bottomOffset } : undefined}
-        data-thread-note={threadKey}
-      >
+      <div className="absolute bottom-4 left-4 z-30" data-thread-note={threadKey}>
         <button
           type="button"
           aria-label={hasThreadNote(note) ? "Open note" : "Add a note to this thread"}
@@ -187,10 +175,13 @@ export function ThreadNoteCard({
 
   const tooLong = draft.length > THREAD_NOTE_MAX_LENGTH;
 
+  // Expanded card stays anchored to the chip corner and grows upward. It
+  // is intentionally narrower and taller than a horizontal popover: long
+  // notes take vertical space (which scrolls) instead of covering the chat
+  // content beside it.
   return (
     <div
-      className="absolute bottom-4 left-4 z-30 w-80 max-w-[calc(100%-2rem)]"
-      style={bottomOffset !== undefined ? { bottom: bottomOffset } : undefined}
+      className="absolute bottom-4 left-4 z-30 w-72 max-w-[calc(100%-2rem)]"
       data-thread-note={threadKey}
       onKeyDown={(event) => {
         if (event.key === "Escape" && !editing) {
@@ -257,7 +248,7 @@ export function ThreadNoteCard({
               aria-invalid={tooLong || undefined}
               placeholder="Jot down context for yourself…"
               rows={3}
-              className="field-sizing-content mt-1.5 block max-h-48 min-h-16 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              className="field-sizing-content mt-1.5 block max-h-80 min-h-16 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               value={draft}
               onChange={(event) => setDraft(event.currentTarget.value)}
               onKeyDown={(event) => {
@@ -292,7 +283,7 @@ export function ThreadNoteCard({
             </div>
           </div>
         ) : (
-          <p className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap text-sm">{note}</p>
+          <p className="mt-1 max-h-80 overflow-y-auto whitespace-pre-wrap text-sm">{note}</p>
         )}
       </div>
     </div>

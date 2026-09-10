@@ -7988,7 +7988,6 @@ export default function ChatView(props: ChatViewProps) {
                 note={activeThread.note}
                 editorRequested={noteEditorOpenForActiveThread}
                 canEdit={canEditThreadNote}
-                bottomOffset={scrollToEndClearance + 16}
               />
             ) : null}
             {/* Messages Wrapper */}
