@@ -96,15 +96,18 @@ Tagged releases also publish versioned images
 
 Pick one:
 
-**A. npm (recommended for CLI use).** Requires Node.js 22.16+ or 24+:
+**A. npx + systemd service (recommended).** Requires Node.js 22.16+ or 24+.
+One command installs KCA as a background service that survives logout and
+starts at boot:
 
 ```bash
-npm install -g kca-code
-kca serve
+npx kca-code@latest service install
 ```
 
-Or without installing: `npx kca-code serve`. The package is published with
-each release.
+Manage it with `npx kca-code@latest service status`, update with
+`npx kca-code@latest service update` (or from the app via
+**Settings → Connections**). Prefer a global install?
+`npm install -g kca-code` gives you a plain `kca` command instead.
 
 **B. Docker (recommended for headless).** Same as §1. The container exposes
 the full WebUI on port 8080; put it behind Caddy/Nginx with TLS if you expose
@@ -225,7 +228,8 @@ and the Docker image cover the rest.
   standard GitHub runners; npm/Vercel/AUR/finalize steps are opt-in via
   `KCA_PUBLISH_NPM` / `KCA_DEPLOY_WEB` / `KCA_PUBLISH_AUR` / `KCA_FINALIZE` repo variables.
 - The npm package is `kca-code` (bin: `kca`), published with each release:
-  `npm install -g kca-code`, or run it without installing via `npx kca-code`.
+  run it without installing via `npx kca-code`, or `npm install -g kca-code`
+  for a global install.
   Background-service install, remote self-update, and desktop SSH to fresh
   hosts all pull this package.
 - macOS builds sign with a Developer ID certificate and notarize when the
