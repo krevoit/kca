@@ -22,8 +22,17 @@ each one means so nothing surprises you:
 
 ## Getting the `kca` command
 
-KCA is not published to npm, so there is no `npx kca`. On a machine built from
-this repository, the CLI is `apps/server/dist/bin.mjs` after
+Install it from npm (requires Node.js 22.16+, 23.11+, or 24.10 and later):
+
+```bash
+npm install -g kca-code
+```
+
+Or run it without installing: `npx kca-code serve`. The package is published
+with each release.
+
+On a machine built from this repository, the CLI is
+`apps/server/dist/bin.mjs` after
 `node apps/server/scripts/cli.ts build`. Put it on your `PATH` once:
 
 ```bash
@@ -170,9 +179,9 @@ In the desktop app, open **Settings → Connections → Add environment**, choos
 or reuses a server there and opens the port forward for you. Projects, provider
 credentials, and agent work stay on the remote machine.
 
-Note: a remote with no KCA checkout gets the upstream `t3` CLI from npm for its
-server process. Prefer checking out this repository (or the Docker image) on
-hosts you control so both ends run the same KCA build.
+Note: a remote with no KCA checkout gets the matching `kca-code` package from
+npm for its server process. Prefer checking out this repository (or the Docker
+image) on hosts you control so both ends run the same KCA build.
 
 The remote host needs a compatible [Node.js installation](./install.md#requirements)
 and [provider setup](./install.md#providers). If launch cannot find Node or reports
