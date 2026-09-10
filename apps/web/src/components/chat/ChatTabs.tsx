@@ -1,25 +1,39 @@
 import { Tooltip, TooltipTrigger, TooltipPopup } from "../ui/tooltip";
 import { useEnvironment } from "../../state/environments";
+import { useAtomValue } from "@effect/atom-react";
 import { useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { PlusIcon, XIcon } from "lucide-react";
+import { shouldShowInstanceBadge } from "@t3tools/client-runtime/state/provider-instance-display";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { DraftId, useComposerDraftStore } from "../../composerDraftStore";
 import { useClientSettings, useClientSettingsHydrated } from "../../hooks/useSettings";
 import { useThreadShell, useThreadStatus } from "../../state/entities";
+import { environmentServerConfigsAtom } from "../../state/server";
 import { openCommandPalette } from "../../commandPaletteBus";
 import { chatTabKey, closeChatTab, useChatTabsStore, type ChatTab } from "../../chatTabsStore";
+import {
+  deriveProviderEntriesByEnvironment,
+  type ProviderInstanceEntry,
+} from "../../providerInstances";
+import { cn } from "~/lib/utils";
+import { ProviderInstanceIcon } from "./ProviderInstanceIcon";
+import { getTriggerDisplayModelLabel } from "./providerIconUtils";
+
+const EMPTY_PROVIDER_ENTRIES: ReadonlyMap<string, ProviderInstanceEntry> = new Map();
 
 function ChatTabItem({
   tab,
   active,
   focusable,
+  providerEntryByInstanceId,
   onSelect,
   onClose,
 }: {
   tab: ChatTab;
   active: boolean;
   focusable: boolean;
+  providerEntryByInstanceId: ReadonlyMap<string, ProviderInstanceEntry>;
   onSelect: () => void;
   onClose: () => void;
 }) {
@@ -39,10 +53,30 @@ function ChatTabItem({
     if (active) button.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [active]);
   const title = shell?.title ?? (tab.draftId ? "New chat" : "Chat");
+  const modelInstanceId =
+    shell?.session?.providerInstanceId ?? shell?.modelSelection.instanceId ?? null;
+  const providerEntry =
+    modelInstanceId === null ? null : (providerEntryByInstanceId.get(modelInstanceId) ?? null);
+  const driverKind = providerEntry?.driverKind ?? null;
+  const selectedModel = providerEntry?.models.find(
+    (model) => model.slug === shell?.modelSelection.model,
+  );
+  const modelLabel = selectedModel
+    ? getTriggerDisplayModelLabel(selectedModel)
+    : (shell?.modelSelection.model ?? null);
+  const tooltip = `${title}${modelLabel ? ` · ${modelLabel}` : ""} · ${environment?.label ?? "Disconnected environment"}`;
   return (
     <div
-      className={`group flex shrink-0 items-center rounded-t-md border border-b-0 ${active ? "border-border bg-background text-foreground" : "border-transparent text-muted-foreground hover:bg-accent/50"}`}
+      className={cn(
+        "group relative flex shrink-0 items-center rounded-lg border transition-colors",
+        active
+          ? "border-border bg-card text-foreground shadow-sm"
+          : "border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+      )}
     >
+      {active ? (
+        <span aria-hidden className="absolute inset-x-3 top-0 h-0.5 rounded-full bg-primary" />
+      ) : null}
       <Tooltip>
         <TooltipTrigger
           render={
@@ -52,7 +86,7 @@ function ChatTabItem({
               role="tab"
               aria-selected={active}
               tabIndex={focusable ? 0 : -1}
-              className="flex h-9 max-w-52 min-w-20 items-center gap-2 truncate px-3 text-xs outline-offset-[-2px]"
+              className="flex h-9 max-w-52 min-w-20 items-center gap-1.5 truncate px-2.5 text-xs outline-offset-[-2px]"
               onClick={onSelect}
               onAuxClick={(event) => {
                 if (event.button === 1) {
@@ -62,21 +96,43 @@ function ChatTabItem({
               }}
             >
               {shell?.latestTurn?.state === "running" ? (
-                <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-label="Running" />
+                <span
+                  className="size-1.5 shrink-0 animate-pulse rounded-full bg-primary"
+                  aria-label="Running"
+                />
               ) : null}
-              <span className="truncate">{title}</span>
+              {driverKind ? (
+                <ProviderInstanceIcon
+                  driverKind={driverKind}
+                  displayName={
+                    providerEntry?.displayName ??
+                    shell?.session?.providerName ??
+                    modelInstanceId ??
+                    "Unknown provider"
+                  }
+                  accentColor={providerEntry?.accentColor}
+                  showBadge={
+                    providerEntry !== null &&
+                    shouldShowInstanceBadge(providerEntry, providerEntryByInstanceId.values())
+                  }
+                  iconClassName="size-3.5"
+                />
+              ) : null}
+              <span className={cn("truncate", active && "font-medium")}>{title}</span>
             </button>
           }
         />
-        <TooltipPopup>
-          {title} · {environment?.label ?? "Disconnected environment"}
-        </TooltipPopup>
+        <TooltipPopup>{tooltip}</TooltipPopup>
       </Tooltip>
       <button
         type="button"
         aria-label={`Close ${title} tab`}
         onClick={onClose}
-        className="mr-1 rounded p-1 hover:bg-accent"
+        className={cn(
+          "mr-1 rounded p-1 hover:bg-accent",
+          !active &&
+            "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100",
+        )}
       >
         <XIcon className="size-3" />
       </button>
@@ -110,6 +166,18 @@ export function ChatTabs() {
   const open = useChatTabsStore((state) => state.open);
   const close = useChatTabsStore((state) => state.close);
   const navigate = useNavigate();
+  const serverConfigs = useAtomValue(environmentServerConfigsAtom);
+  // Same per-environment provider lookup the sidebar rows use: default
+  // instance ids are driver slugs, so resolution must stay scoped per env.
+  const providerEntriesByEnvironment = useMemo(
+    () =>
+      deriveProviderEntriesByEnvironment(
+        [...serverConfigs].map(
+          ([environmentId, config]) => [environmentId, config.providers] as const,
+        ),
+      ),
+    [serverConfigs],
+  );
   const key = current ? chatTabKey(current) : null;
   useEffect(() => {
     if (enabled && current) open(current);
@@ -154,6 +222,9 @@ export function ChatTabs() {
             tab={tab}
             active={chatTabKey(tab) === key}
             focusable={key === null ? index === 0 : chatTabKey(tab) === key}
+            providerEntryByInstanceId={
+              providerEntriesByEnvironment.get(tab.environmentId) ?? EMPTY_PROVIDER_ENTRIES
+            }
             onSelect={() => select(tab)}
             onClose={() => {
               const removed = chatTabKey(tab);
