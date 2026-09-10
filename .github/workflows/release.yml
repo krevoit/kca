@@ -879,10 +879,11 @@ jobs:
 
   release:
     name: Publish GitHub Release
-    # KCA fork: publish_cli is opt-in (see above), so the GitHub Release only
-    # waits for the desktop builds.
-    needs: [preflight, build]
-    if: ${{ !failure() && !cancelled() && needs.preflight.result == 'success' && needs.build.result == 'success' }}
+    # Do not publish a release until the shared quality gate passes. The npm
+    # CLI publish remains opt-in, but a failed quality run must not leave a
+    # release pointing at an unavailable CLI version.
+    needs: [preflight, quality, build]
+    if: ${{ !failure() && !cancelled() && needs.preflight.result == 'success' && needs.quality.result == 'success' && needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
