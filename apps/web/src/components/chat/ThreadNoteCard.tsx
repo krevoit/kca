@@ -5,7 +5,7 @@ import {
 } from "@t3tools/client-runtime/state/runtime";
 import { THREAD_NOTE_MAX_LENGTH, type EnvironmentId, type ThreadId } from "@t3tools/contracts";
 import { useCallback, useState } from "react";
-import { PencilIcon, StickyNoteIcon, Trash2Icon } from "lucide-react";
+import { PencilIcon, StickyNoteIcon, Trash2Icon, XIcon } from "lucide-react";
 
 import { readLocalApi } from "../../localApi";
 import { threadEnvironment } from "../../state/threads";
@@ -16,11 +16,12 @@ import { Button } from "../ui/button";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 
 /**
- * Sticky user note pinned above a thread's timeline.
+ * Sticky user note floating at the thread's bottom-left corner.
  *
- * View-only by construction: the note lives on thread metadata and no agent
- * path reads it. Editing opens from the thread action menu (sidebar rows and
- * chat header) through the note-editor store, or from the card itself.
+ * Collapsed to a chip by default; expands to view or edit. View-only by
+ * construction: the note lives on thread metadata and no agent path reads
+ * it. Editing opens from the chip, the expanded card, or the thread action
+ * menu (sidebar rows and chat header) through the note-editor store.
  */
 export function ThreadNoteCard({
   environmentId,
@@ -37,6 +38,7 @@ export function ThreadNoteCard({
   readonly editorRequested: boolean;
   readonly canEdit: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   // A menu-opened editor takes over whenever the signal targets this thread.
@@ -48,6 +50,7 @@ export function ThreadNoteCard({
     if (editorRequested) {
       setDraft(note ?? "");
       setEditing(true);
+      setExpanded(true);
     }
   }
   const updateThreadMetadata = useAtomCommand(threadEnvironment.updateMetadata, {
@@ -60,9 +63,28 @@ export function ThreadNoteCard({
   }, [note]);
 
   const cancelEditing = useCallback(() => {
+    closeNoteEditor();
+    if (hasThreadNote(note)) {
+      setEditing(false);
+    } else {
+      setEditing(false);
+      setExpanded(false);
+    }
+  }, [note]);
+
+  const closeWidget = useCallback(() => {
+    setExpanded(false);
     setEditing(false);
     closeNoteEditor();
   }, []);
+
+  const openWidget = useCallback(() => {
+    setExpanded(true);
+    if (!hasThreadNote(note) && canEdit) {
+      setDraft(note ?? "");
+      setEditing(true);
+    }
+  }, [note, canEdit]);
 
   const saveNote = useCallback(async () => {
     if (draft.length > THREAD_NOTE_MAX_LENGTH) return;
@@ -113,6 +135,7 @@ export function ThreadNoteCard({
       }
       return;
     }
+    setExpanded(false);
     setEditing(false);
     closeNoteEditor();
     toastManager.add(
@@ -120,42 +143,89 @@ export function ThreadNoteCard({
     );
   }, [environmentId, threadId, updateThreadMetadata]);
 
-  if (!hasThreadNote(note) && !editorRequested && !editing && !canEdit) return null;
-  const showEmptyAffordance = !hasThreadNote(note) && !editorRequested && !editing;
+  if (!expanded && !editorRequested) {
+    // Collapsed chip. Visible whenever there is something to open: an
+    // existing note, or the add affordance on capable servers.
+    if (!hasThreadNote(note) && !canEdit) return null;
+    return (
+      <div className="absolute bottom-4 left-4 z-30" data-thread-note={threadKey}>
+        <button
+          type="button"
+          aria-label={hasThreadNote(note) ? "Open note" : "Add a note to this thread"}
+          onClick={openWidget}
+          className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-card/95 py-1.5 pr-3 pl-2.5 text-xs text-muted-foreground shadow-md backdrop-blur transition-colors hover:text-foreground"
+        >
+          <span className="relative flex items-center">
+            <StickyNoteIcon
+              className="size-3.5 text-amber-600 dark:text-amber-400"
+              aria-hidden="true"
+            />
+            {hasThreadNote(note) ? (
+              <span
+                aria-hidden
+                className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-amber-500"
+              />
+            ) : null}
+          </span>
+          Note
+        </button>
+      </div>
+    );
+  }
 
   const tooLong = draft.length > THREAD_NOTE_MAX_LENGTH;
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pt-2" data-thread-note={threadKey}>
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-3.5 py-2.5">
+    <div
+      className="absolute bottom-4 left-4 z-30 w-80 max-w-[calc(100%-2rem)]"
+      data-thread-note={threadKey}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && !editing) {
+          event.stopPropagation();
+          closeWidget();
+        }
+      }}
+    >
+      <div className="rounded-xl border border-amber-500/30 bg-card px-3.5 py-2.5 shadow-xl">
         <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-300">
           <StickyNoteIcon className="size-3.5" aria-hidden="true" />
           <span>Note</span>
           <span className="font-normal text-amber-700/70 dark:text-amber-300/70">
             · only visible to you
           </span>
-          {!editing && canEdit ? (
-            <span className="ml-auto flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="xs"
-                className="h-6 gap-1 px-1.5 text-amber-700 dark:text-amber-300"
-                onClick={startEditing}
-              >
-                <PencilIcon className="size-3" aria-hidden="true" />
-                Edit
-              </Button>
-              <Button
-                variant="ghost"
-                size="xs"
-                className="h-6 gap-1 px-1.5 text-amber-700 dark:text-amber-300"
-                onClick={() => void removeNote()}
-              >
-                <Trash2Icon className="size-3" aria-hidden="true" />
-                Remove
-              </Button>
-            </span>
-          ) : null}
+          <span className="ml-auto flex items-center gap-1">
+            {!editing && canEdit ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="h-6 gap-1 px-1.5 text-amber-700 dark:text-amber-300"
+                  onClick={startEditing}
+                >
+                  <PencilIcon className="size-3" aria-hidden="true" />
+                  Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="h-6 gap-1 px-1.5 text-amber-700 dark:text-amber-300"
+                  onClick={() => void removeNote()}
+                >
+                  <Trash2Icon className="size-3" aria-hidden="true" />
+                  Remove
+                </Button>
+              </>
+            ) : null}
+            <Button
+              variant="ghost"
+              size="xs"
+              aria-label="Close note"
+              className="h-6 px-1.5 text-muted-foreground"
+              onClick={closeWidget}
+            >
+              <XIcon className="size-3" aria-hidden="true" />
+            </Button>
+          </span>
         </div>
         {editing ? (
           <div
@@ -208,16 +278,6 @@ export function ThreadNoteCard({
               </span>
             </div>
           </div>
-        ) : showEmptyAffordance ? (
-          <button
-            type="button"
-            aria-label="Add a note to this thread"
-            onClick={startEditing}
-            className="mt-1 flex w-full items-center gap-1.5 rounded-lg border border-dashed border-amber-500/40 px-2.5 py-2 text-left text-sm text-amber-700/80 transition-colors hover:bg-amber-500/10 dark:text-amber-300/80"
-          >
-            <StickyNoteIcon className="size-3.5 shrink-0" aria-hidden="true" />
-            Add a note…
-          </button>
         ) : (
           <p className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap text-sm">{note}</p>
         )}
