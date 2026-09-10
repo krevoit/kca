@@ -31,6 +31,11 @@ The offered action depends on how the server runs:
 | **Update the desktop app** | Update the desktop app on the machine running the server, then reopen it if needed.                                                                                                             |
 | **Copy update command**    | Stop the command-line server on its host and relaunch with the copied command, keeping your usual startup options.                                                                              |
 
+Driving a remote Linux host from your Mac or another client? Use the **Update
+server** button in the notice or **Settings → Connections** — download,
+install, restart, and reconnect all happen on the host with progress shown in
+your client. No SSH session needed.
+
 For a background service, run its CLI on the host:
 
 ```sh
