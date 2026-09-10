@@ -17,20 +17,28 @@ What the fork changes:
   is merged across all connected environments — including runs made outside KCA.
   Free-tier models (`*-free`) are priced at their paid API rates instead of
   showing $0.00.
-- **Familiar defaults.** Legacy per-project sidebar and the composer context
-  meter are on by default, and the starry sidebar art shows on every channel.
-  The context meter now reports % and token counts for OpenCode models too,
-  same as Codex/Claude: usage is the latest step's window footprint (not an
-  ever-growing sum), clamped at 100%, with the cumulative total shown
+- **Familiar defaults, no Legacy section.** The grouped sidebar and the composer
+  context meter are on by default under **Settings → General** as **Sidebar**
+  and **Context window indicator** (not hidden behind Legacy features).
+  **Stream token by token** also lives there (off by default — buffered output
+  stays faster and easier to follow). Only Plan mode remains under Legacy.
+  Mobile mirrors this: **Grouped thread list** is in General, Plan Mode stays
+  in Legacy. The context meter reports % and token counts for OpenCode models
+  too, same as Codex/Claude: usage is the latest step's window footprint (not
+  an ever-growing sum), clamped at 100%, with the cumulative total shown
   separately. Quota errors ("Free usage exceeded, subscribe to Go") fail the
   turn immediately instead of retrying with a spinner.
-- **Chat tabs with provider logos.** Open chats sit in a tab strip showing the
-  same provider icons as the sidebar, a running indicator, and model details
-  in the tooltip.
-- **Sticky thread notes.** Each thread has a private note on a bottom-left
-  chip, collapsed by default — visible only to you, never sent to the agent.
-  The expanded card opens vertically (narrower, taller) instead of covering
-  the chat beside it.
+- **Chat tabs with provider logos, reorderable.** Open chats sit in a slimmer
+  tab strip showing the same provider icons as the sidebar, a running
+  indicator, and model details in the tooltip. Drag tabs to reorder (desktop
+  inherits the web tab bar); keyboard: arrows switch, Ctrl/Cmd + arrows move
+  the focused tab. On mobile, threads reorder with the existing drag handles.
+- **Sticky thread notes, every surface.** Each thread has a private note —
+  collapsed to a chip by default, visible only to you, never sent to the
+  agent. On web/desktop the chip sits in the bottom-left gutter beside the
+  composer and the expanded card grows vertically instead of covering chat;
+  on mobile the same collapsed chip sits above the feed and expands in place,
+  slim enough to stay clear of the composer.
 - **Binaries from this repo.** Linux AppImage + `.deb` and Apple Silicon DMG
   are built by this repo's Release workflow, and the desktop app auto-updates
   from `krevoit/kca` releases. Server self-update and remote-install messages
