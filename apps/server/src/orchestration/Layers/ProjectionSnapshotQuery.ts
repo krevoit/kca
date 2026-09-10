@@ -2609,65 +2609,65 @@ pending_approval_requests AS (
               );
               const pullRequestsByThread = groupPullRequestRowsByThread(pullRequestRows);
 
-            const snapshot = {
-              snapshotSequence: computeSnapshotSequence(stateRows),
-              projects: Arr.filterMap(projectRows, (row) =>
-                row.deletedAt === null
-                  ? Result.succeed(
-                      mapProjectShellRow(row, repositoryIdentities.get(row.projectId) ?? null),
-                    )
-                  : Result.failVoid,
-              ),
-              threads: Arr.filterMap(threadRows, (row) =>
-                row.deletedAt === null
-                  ? Result.succeed({
-                      id: row.threadId,
-                      projectId: row.projectId,
-                      title: row.title,
-                      modelSelection: row.modelSelection,
-                      runtimeMode: row.runtimeMode,
-                      interactionMode: row.interactionMode,
-                      branch: row.branch,
-                      worktreePath: row.worktreePath,
-                      branchPullRequest: row.branchPullRequest,
-                      ...mapThreadPullRequests(
-                        pullRequestsByThread.get(row.threadId) ?? [],
-                        row.projectId,
-                        repositoryIdentities.get(row.projectId),
-                      ),
-                      latestTurn: latestTurnByThread.get(row.threadId) ?? null,
-                      createdAt: row.createdAt,
-                      updatedAt: row.updatedAt,
-                      archivedAt: row.archivedAt,
-                      settledOverride: row.settledOverride,
-                      settledAt: row.settledAt,
-                      unsettledAt: row.unsettledAt,
-                      snoozedUntil: row.snoozedUntil,
-                      snoozedAt: row.snoozedAt,
-                      pinnedAt: row.pinnedAt,
-                      pinOrderKey: row.pinOrderKey ?? null,
-                      activeOrderKey: row.activeOrderKey ?? null,
-                      note: row.note ?? null,
-                      titleRegeneration: mapTitleRegeneration(row),
-                      session: sessionByThread.get(row.threadId) ?? null,
-                      latestUserMessageAt: row.latestUserMessageAt,
-                      hasPendingApprovals: row.pendingApprovalCount > 0,
-                      hasPendingUserInput: row.pendingUserInputCount > 0,
-                      hasActionableProposedPlan: row.hasActionableProposedPlan > 0,
-                      backgroundLiveness: threadBackgroundLiveness.getThreadBackgroundLiveness(
-                        row.threadId,
-                      ),
-                      planProgress: threadPlanProgress.getThreadPlanProgress(row.threadId),
-                    } satisfies OrchestrationThreadShell)
-                  : Result.failVoid,
-              ),
-              updatedAt: updatedAt ?? "1970-01-01T00:00:00.000Z",
-            };
+              const snapshot = {
+                snapshotSequence: computeSnapshotSequence(stateRows),
+                projects: Arr.filterMap(projectRows, (row) =>
+                  row.deletedAt === null
+                    ? Result.succeed(
+                        mapProjectShellRow(row, repositoryIdentities.get(row.projectId) ?? null),
+                      )
+                    : Result.failVoid,
+                ),
+                threads: Arr.filterMap(threadRows, (row) =>
+                  row.deletedAt === null
+                    ? Result.succeed({
+                        id: row.threadId,
+                        projectId: row.projectId,
+                        title: row.title,
+                        modelSelection: row.modelSelection,
+                        runtimeMode: row.runtimeMode,
+                        interactionMode: row.interactionMode,
+                        branch: row.branch,
+                        worktreePath: row.worktreePath,
+                        branchPullRequest: row.branchPullRequest,
+                        ...mapThreadPullRequests(
+                          pullRequestsByThread.get(row.threadId) ?? [],
+                          row.projectId,
+                          repositoryIdentities.get(row.projectId),
+                        ),
+                        latestTurn: latestTurnByThread.get(row.threadId) ?? null,
+                        createdAt: row.createdAt,
+                        updatedAt: row.updatedAt,
+                        archivedAt: row.archivedAt,
+                        settledOverride: row.settledOverride,
+                        settledAt: row.settledAt,
+                        unsettledAt: row.unsettledAt,
+                        snoozedUntil: row.snoozedUntil,
+                        snoozedAt: row.snoozedAt,
+                        pinnedAt: row.pinnedAt,
+                        pinOrderKey: row.pinOrderKey ?? null,
+                        activeOrderKey: row.activeOrderKey ?? null,
+                        note: row.note ?? null,
+                        titleRegeneration: mapTitleRegeneration(row),
+                        session: sessionByThread.get(row.threadId) ?? null,
+                        latestUserMessageAt: row.latestUserMessageAt,
+                        hasPendingApprovals: row.pendingApprovalCount > 0,
+                        hasPendingUserInput: row.pendingUserInputCount > 0,
+                        hasActionableProposedPlan: row.hasActionableProposedPlan > 0,
+                        backgroundLiveness: threadBackgroundLiveness.getThreadBackgroundLiveness(
+                          row.threadId,
+                        ),
+                        planProgress: threadPlanProgress.getThreadPlanProgress(row.threadId),
+                      } satisfies OrchestrationThreadShell)
+                    : Result.failVoid,
+                ),
+                updatedAt: updatedAt ?? "1970-01-01T00:00:00.000Z",
+              };
 
-            return yield* decodeShellSnapshot(snapshot).pipe(
-              Effect.mapError(
-                toPersistenceDecodeError(
-                  "ProjectionSnapshotQuery.getShellSnapshot:decodeShellSnapshot",
+              return yield* decodeShellSnapshot(snapshot).pipe(
+                Effect.mapError(
+                  toPersistenceDecodeError(
+                    "ProjectionSnapshotQuery.getShellSnapshot:decodeShellSnapshot",
                   ),
                 ),
               );
