@@ -61,8 +61,13 @@ import Migration0046 from "./Migrations/046_RepairAutomaticSettlementTimestamps.
 import Migration0047 from "./Migrations/047_ProjectionProjectIcon.ts";
 import Migration0048 from "./Migrations/048_ProjectionThreadBranchPullRequest.ts";
 import Migration0049 from "./Migrations/049_ProjectionThreadsActiveOrderKey.ts";
-import Migration0050 from "./Migrations/050_ProjectionThreadNote.ts";
-import Migration0051 from "./Migrations/050_ProjectionThreadPullRequests.ts";
+import Migration0050Note from "./Migrations/050_ProjectionThreadNote.ts";
+import Migration0051PullRequests from "./Migrations/050_ProjectionThreadPullRequests.ts";
+// KCA fork: ids 50 (Note) and 51 (PullRequests) are already applied on fork
+// databases, while upstream used 50 for PullRequests and 51 for
+// MessageContext. MessageContext therefore lands on 52 here so existing fork
+// databases migrate cleanly; future upstream migrations continue from 53.
+import Migration0052MessageContext from "./Migrations/051_ProjectionThreadMessageContext.ts";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -124,8 +129,9 @@ const migrationEntries = [
   [47, "ProjectionProjectIcon", Migration0047],
   [48, "ProjectionThreadBranchPullRequest", Migration0048],
   [49, "ProjectionThreadsActiveOrderKey", Migration0049],
-  [50, "ProjectionThreadNote", Migration0050],
-  [51, "ProjectionThreadPullRequests", Migration0051],
+  [50, "ProjectionThreadNote", Migration0050Note],
+  [51, "ProjectionThreadPullRequests", Migration0051PullRequests],
+  [52, "ProjectionThreadMessageContext", Migration0052MessageContext],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);
