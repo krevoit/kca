@@ -5,6 +5,7 @@ import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
+import * as Stream from "effect/Stream";
 import * as Semaphore from "effect/Semaphore";
 import type { HttpClient } from "effect/unstable/http";
 
@@ -87,6 +88,10 @@ export class PinnedRuntimePreflightBlockedError extends Schema.TaggedError<Pinne
   }
 }
 
+export type PinnedRuntimeProgress =
+  | { readonly stage: "download"; readonly received: number; readonly total: number | undefined }
+  | { readonly stage: "verify" | "extract" | "validate" | "cached" };
+
 /**
  * Installs `kca-code@<version>` into the pinned runtime directory unless a complete
  * install is already there, and returns its paths. The sentinel is written
@@ -94,6 +99,7 @@ export class PinnedRuntimePreflightBlockedError extends Schema.TaggedError<Pinne
  * extracts files before running native builds (node-pty), so a killed
  * install leaves a plausible-looking but broken tree behind.
  */
+
 interface PinnedRuntimeInstallInput {
   readonly baseDir: string;
   readonly version: string;
@@ -107,8 +113,8 @@ interface PinnedRuntimeInstallInput {
   readonly arch: string;
   readonly httpClient: HttpClient.HttpClient;
   readonly releaseBaseUrl?: string | undefined;
+  readonly onProgress?: (progress: PinnedRuntimeProgress) => void;
 }
-
 const installPinnedRuntime = Effect.fn("cloud.pinned_runtime.ensure_installed")(function* (
   input: PinnedRuntimeInstallInput,
 ) {
@@ -126,6 +132,7 @@ const installPinnedRuntime = Effect.fn("cloud.pinned_runtime.ensure_installed")(
   const alreadyPinned =
     entryExists && Option.isSome(sentinel) && sentinel.value.trim() === input.version;
   if (alreadyPinned) {
+    input.onProgress?.({ stage: "cached" });
     yield* input.validate(paths);
     return paths;
   }
@@ -215,6 +222,7 @@ const installPinnedRuntime = Effect.fn("cloud.pinned_runtime.ensure_installed")(
         ),
       );
 
+    input.onProgress?.({ stage: "validate" });
     yield* input.validate(stagingPaths);
     yield* fs
       .writeFileString(stagingPaths.sentinelPath, `${input.version}\n`)

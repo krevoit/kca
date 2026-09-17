@@ -18,7 +18,6 @@ import { projectCommand } from "./cli/project.ts";
 import { runServerCommand, serveCommand, startCommand } from "./cli/server.ts";
 import { serviceCommand } from "./cli/service.ts";
 import { uninstallCommand } from "./cli/uninstall.ts";
-import { updateCommand } from "./cli/update.ts";
 import { claudeHistoryCommand } from "./cli/claudeHistory.ts";
 import { serviceLauncherCommand } from "./cli/serviceLauncher.ts";
 import { servicePreflightCommand } from "./cli/servicePreflight.ts";
@@ -64,7 +63,8 @@ export const makeCli = ({ cloudEnabled = hasCloudPublicConfig } = {}) =>
       authCommand,
       projectCommand,
       serviceCommand,
-      updateCommand,
+      // KCA fork: no `update` command (it downloads upstream t3 release
+      // archives; the fork upgrades via `npx kca-code@latest service update`).
       uninstallCommand,
       serviceLauncherCommand,
       claudeHistoryCommand,

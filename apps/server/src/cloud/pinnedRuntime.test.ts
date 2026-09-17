@@ -14,6 +14,7 @@ import {
   pinnedRuntimeCommand,
   pinnedRuntimePaths,
   PinnedRuntimeInstallError,
+  type PinnedRuntimeProgress,
 } from "./pinnedRuntime.ts";
 
 // Every install fetches the release archive, checks it against SHA256SUMS,

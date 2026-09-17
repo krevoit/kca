@@ -190,12 +190,8 @@ and [provider setup](./install.md#providers). If launch cannot find Node or repo
 an incompatible version, check it through a non-interactive SSH session:
 
 ```bash
-ssh user@example.com 'sh -lc "command -v node && node --version"'
+ssh user@example.com 'sh -lc "command -v claude codex"'
 ```
-
-Configure your version manager for non-interactive shells if this differs from
-your normal terminal. With nvm, setting a compatible default, such as
-`nvm alias default 24`, can resolve the problem.
 
 If SSH reconnecting fails after an app update, retry the launch once. Removing
 the connection stops a server that KCA launched; a server that was already
