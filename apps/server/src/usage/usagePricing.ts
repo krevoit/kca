@@ -206,6 +206,26 @@ function stripFreeTierSuffix(key: string): string {
 }
 
 /**
+ * Model IDs that price at another model's rate.
+ *
+ * Keys and targets are normalized rate-table keys (lowercase). The alias
+ * applies to the looked-up name and to its `-free`-stripped fallback, so
+ * aliasing a base name covers the free-tier variant through the existing
+ * fallback chain. An explicit table entry for either name still wins.
+ *
+ * KCA fork: `x-preview-f` is served free through OpenCode and reports no
+ * usable rate of its own; it prices at GLM 5.3 Flash API rates (canonical
+ * Z.AI table key), tracking LiteLLM's live entry instead of a hardcoded copy.
+ */
+const MODEL_RATE_ALIASES: Readonly<Record<string, string>> = {
+  "x-preview-f": "zai/glm-5.3-flash",
+};
+
+function resolveRateAlias(key: string): string {
+  return MODEL_RATE_ALIASES[key] ?? key;
+}
+
+/**
  * Models we never price, regardless of the table.
  *
  * `<synthetic>` marks locally generated messages that were never billed. Bare
@@ -229,12 +249,11 @@ function isPriceableKey(key: string): boolean {
 export function lookupRate(table: RateTable, model: string): ModelRate | null {
   const key = stripVariantSuffix(normalizeRateKey(model));
   if (!isPriceableKey(key)) return null;
+  const direct = table.get(key) ?? table.get(resolveRateAlias(key));
+  if (direct !== undefined) return direct;
   const freeTierFallback = stripFreeTierSuffix(key);
-  const fallbackRate =
-    freeTierFallback !== key && isPriceableKey(freeTierFallback)
-      ? table.get(freeTierFallback)
-      : undefined;
-  return table.get(key) ?? fallbackRate ?? null;
+  if (freeTierFallback === key || !isPriceableKey(freeTierFallback)) return null;
+  return table.get(freeTierFallback) ?? table.get(resolveRateAlias(freeTierFallback)) ?? null;
 }
 
 export interface PricedUsage {

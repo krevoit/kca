@@ -66,8 +66,10 @@ import Migration0051PullRequests from "./Migrations/050_ProjectionThreadPullRequ
 // KCA fork: ids 50 (Note) and 51 (PullRequests) are already applied on fork
 // databases, while upstream used 50 for PullRequests and 51 for
 // MessageContext. MessageContext therefore lands on 52 here so existing fork
-// databases migrate cleanly; future upstream migrations continue from 53.
+// databases migrate cleanly; upstream migrations after that shift by one
+// (TitleState is upstream 052, fork 53, and so on).
 import Migration0052MessageContext from "./Migrations/051_ProjectionThreadMessageContext.ts";
+import Migration0053TitleState from "./Migrations/052_ProjectionThreadTitleState.ts";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -132,6 +134,7 @@ const migrationEntries = [
   [50, "ProjectionThreadNote", Migration0050Note],
   [51, "ProjectionThreadPullRequests", Migration0051PullRequests],
   [52, "ProjectionThreadMessageContext", Migration0052MessageContext],
+  [53, "ProjectionThreadTitleState", Migration0053TitleState],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

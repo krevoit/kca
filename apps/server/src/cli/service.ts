@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Terminal from "effect/Terminal";
 import { Command, Flag, GlobalFlag, Prompt } from "effect/unstable/cli";
+import { FetchHttpClient } from "effect/unstable/http";
 
 import packageJson from "../../package.json" with { type: "json" };
 import * as BootService from "../cloud/bootService.ts";
@@ -17,7 +18,11 @@ export const bootServiceLayer = (config: ServerConfig.ServerConfig["Service"]) =
     baseDir: config.baseDir,
     logsDir: config.logsDir,
     cliVersion: packageJson.version,
-  }).pipe(Layer.provide(ProcessRunner.layer));
+  }).pipe(
+    Layer.provide(ProcessRunner.layer),
+    // npm-distributed versions install kca-code from the registry here.
+    Layer.provide(FetchHttpClient.layer),
+  );
 
 export type ServiceReconcileResult =
   | {
@@ -33,6 +38,7 @@ export type ServiceReconcileResult =
 /** Install, update, or repair the service using the CLI version running this command. */
 export const reconcileService = Effect.fn("cli.service.reconcile")(function* (options?: {
   readonly allowDowngrade?: boolean;
+  readonly start?: boolean;
 }) {
   const service = yield* BootService.BootService;
   const status = yield* service.status;
@@ -133,6 +139,8 @@ const serviceInstallCommand = Command.make("install", serviceReconcileFlags).pip
   ),
 );
 
+// KCA fork: no `kca update` command exists (npm-distributed CLI), so
+// `service update` stays the supported way to move to a newer release.
 const serviceUpdateCommand = Command.make("update", serviceReconcileFlags).pipe(
   Command.withDescription(
     "Update or repair the background service using this CLI version. Use `npx kca-code@latest service update` for the latest release.",
@@ -148,6 +156,27 @@ const serviceUpdateCommand = Command.make("update", serviceReconcileFlags).pipe(
         }
         yield* Console.log(
           `${result.previouslyInstalled ? "Updated" : "Installed"} KCA service with kca-code@${packageJson.version}.\nLogs: ${result.plan.logPath}`,
+        );
+      }),
+    ),
+  ),
+);
+
+const serviceRestartCommand = Command.make("restart", projectLocationFlags).pipe(
+  Command.withDescription(
+    "Restart the background service. Picks up a version installed by `npx kca-code@latest service update` that was not restarted at the time.",
+  ),
+  Command.withHandler((flags) =>
+    runServiceCommand(
+      flags,
+      Effect.gen(function* () {
+        const service = yield* BootService.BootService;
+        const status = yield* service.status;
+        const restarted = yield* service.restart;
+        yield* Console.log(
+          restarted
+            ? `Restarted the T3 Code service${status.installedVersion === undefined ? "" : ` on t3@${status.installedVersion}`}.`
+            : "T3 Code service is not installed.",
         );
       }),
     ),
@@ -258,8 +287,9 @@ export const serviceCommand = Command.make("service").pipe(
   Command.withDescription("Manage the KCA background service."),
   Command.withSubcommands([
     serviceInstallCommand,
+    serviceRestartCommand,
     serviceUninstallCommand,
-    serviceUpdateCommand,
     serviceStatusCommand,
+    serviceUpdateCommand,
   ]),
 );

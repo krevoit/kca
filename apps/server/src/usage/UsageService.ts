@@ -15,10 +15,9 @@
 import * as NodeOS from "node:os";
 
 import {
+  ClaudeSettings,
   CodexSettings,
-  ProviderDriverKind,
   USAGE_CONTRACT_VERSION,
-  resolveProviderInstanceEnabled,
   type ProviderInstanceConfig,
   type ServerSettings as ServerSettingsValue,
   type UsageProviderKind,
@@ -46,8 +45,8 @@ import { HttpClient, HttpClientResponse } from "effect/unstable/http";
 import { ServerConfig } from "../config.ts";
 import { expandHomePath } from "../pathExpansion.ts";
 import * as ServerSettings from "../serverSettings.ts";
-import { resolveClaudeHomePath } from "../provider/Drivers/ClaudeHome.ts";
 import { resolveCodexHomeLayout } from "../provider/Drivers/CodexHomeLayout.ts";
+import { mergeProviderInstanceEnvironment } from "../provider/ProviderInstanceEnvironment.ts";
 import { UsageAggregator } from "./usageAggregation.ts";
 import {
   builtinRateTable,
@@ -97,6 +96,9 @@ const MAX_HOURLY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /** Longest window the UI offers, plus slack. Older entries are pruned. */
 const CACHE_RETENTION_DAYS = 90;
+
+const decodeCodexSettings = Schema.decodeOption(CodexSettings);
+const decodeClaudeSettings = Schema.decodeOption(ClaudeSettings);
 
 /** On-disk shape of the rate snapshot. */
 const RatesCacheFile = Schema.Struct({
@@ -245,19 +247,6 @@ export const make = Effect.gen(function* () {
     Effect.withSpan("UsageService.refreshRates"),
   );
 
-  /**
-   * Claude's config dir is the home itself when overridden, but a default
-   * install nests transcripts under `~/.claude/projects`. Probe both.
-   */
-  const resolveClaudeTranscriptDir = (homePath: string) =>
-    Effect.gen(function* () {
-      const nested = path.join(homePath, ".claude", "projects");
-      const nestedExists = yield* fileSystem
-        .exists(nested)
-        .pipe(Effect.catchCause(() => Effect.succeed(false)));
-      return nestedExists ? nested : path.join(homePath, "projects");
-    });
-
   // A settings failure must not silently discard custom rates or transcript homes.
   const readSettings = settingsService.getSettings.pipe(
     Effect.catchCause(
@@ -279,109 +268,75 @@ export const make = Effect.gen(function* () {
     readonly dbFileName?: string;
   }
 
-  /** Resolves one transcript dir per distinct Codex home (sessions + archive). */
-  const decodeCodexSettings = Schema.decodeUnknownOption(CodexSettings);
-  const resolveCodexTranscriptDirs = Effect.fn("UsageService.resolveCodexTranscriptDirs")(
-    function* (settings: ServerSettingsValue) {
-      const instances: Array<{
-        readonly instanceId: string;
-        readonly config: ProviderInstanceConfig;
-      }> = Object.entries(settings.providerInstances)
-        .filter(
-          ([, instance]) => instance.driver === "codex" && resolveProviderInstanceEnabled(instance),
-        )
-        .map(([instanceId, config]) => ({ instanceId, config }));
-      if (!Object.hasOwn(settings.providerInstances, "codex")) {
-        const legacyInstance = {
-          instanceId: "codex",
-          config: {
-            driver: ProviderDriverKind.make("codex"),
-            config: settings.providers.codex,
-          },
-        };
-        if (resolveProviderInstanceEnabled(legacyInstance.config)) {
-          instances.push(legacyInstance);
-        }
-      }
-      // Built-in instance first so shared homes keep a stable owner.
-      instances.sort((left, right) => {
-        const leftDefault = left.instanceId === "codex" ? 0 : 1;
-        const rightDefault = right.instanceId === "codex" ? 0 : 1;
-        return leftDefault - rightDefault;
-      });
-
-      const seenHomes = new Set<string>();
-      const dirs: Array<{ provider: "codex"; dir: string; fileName?: string }> = [];
-      for (const { config: instance } of instances) {
-        const environmentHome =
-          instance.environment?.findLast((variable) => variable.name === "CODEX_HOME")?.value ??
-          hostEnvironment["CODEX_HOME"];
-        const decoded = decodeCodexSettings(instance.config ?? {});
-        if (Option.isNone(decoded)) continue;
-        const codexSettings =
-          decoded.value.homePath.trim().length === 0 &&
-          decoded.value.shadowHomePath.trim().length === 0 &&
-          environmentHome?.trim()
-            ? { ...decoded.value, homePath: environmentHome }
-            : decoded.value;
-        const layout = yield* resolveCodexHomeLayout(codexSettings).pipe(
-          Effect.provideService(Path.Path, path),
-        );
-        const homeKey = path.resolve(layout.sharedHomePath);
-        if (seenHomes.has(homeKey)) continue;
-        seenHomes.add(homeKey);
-        // sessions holds live transcripts; archived_sessions holds the same
-        // JSONL shape for rotated sessions. Both are priced identically.
-        dirs.push({
-          provider: "codex" as const,
-          dir: path.join(layout.sharedHomePath, "sessions"),
-        });
-        dirs.push({
-          provider: "codex" as const,
-          dir: path.join(layout.sharedHomePath, "archived_sessions"),
-        });
-      }
-      // Fall back to the default home so a fresh install still reports a
-      // (missing) source instead of an empty list.
-      if (dirs.length === 0) {
-        const layout = yield* resolveCodexHomeLayout(settings.providers.codex).pipe(
-          Effect.provideService(Path.Path, path),
-        );
-        dirs.push({
-          provider: "codex" as const,
-          dir: path.join(layout.sharedHomePath, "sessions"),
-        });
-      }
-      return dirs;
-    },
-  );
-
   /** Resolves the transcript directory for each provider. */
   const resolveTranscriptDirs = Effect.fn("UsageService.resolveTranscriptDirs")(function* (
     settings: ServerSettingsValue,
   ) {
-    const claudeHome = yield* resolveClaudeHomePath(settings.providers.claudeAgent);
-    const claudeDir = yield* resolveClaudeTranscriptDir(claudeHome);
-    const codexDirs = yield* resolveCodexTranscriptDirs(settings);
-    const opencodeDataDir = resolveOpencodeDataDir(hostEnvironment);
-    // Grok Settings only expose the binary path; home is `$GROK_HOME` or `~/.grok`.
-    // Empty/whitespace GROK_HOME must fall back: coalescing alone would scan cwd.
-    const grokHomeEnv = hostEnvironment["GROK_HOME"]?.trim() ?? "";
-    const grokHome =
-      grokHomeEnv.length > 0
-        ? path.resolve(expandHomePath(grokHomeEnv))
-        : path.join(NodeOS.homedir(), ".grok");
-
-    const dirs: ResolvedTranscriptDir[] = [
-      { provider: "claude" as const, dir: claudeDir },
-      ...codexDirs,
-      { provider: "opencode" as const, dir: opencodeDataDir, dbFileName: OPENCODE_DB_FILENAME },
-      {
-        provider: "grok" as const,
-        dir: path.join(grokHome, "sessions"),
-        fileName: "updates.jsonl",
-      },
-    ];
+    const dirs: ResolvedTranscriptDir[] = [];
+    const seen = new Set<string>();
+    for (const driver of ["claudeAgent", "codex", "grok"] as const) {
+      // Disabled accounts still have history. Explicit default slots replace
+      // the legacy settings, just as they do in the provider registry.
+      const instances: Array<Pick<ProviderInstanceConfig, "config" | "environment">> =
+        Object.values(settings.providerInstances).filter((instance) => instance.driver === driver);
+      if (!Object.hasOwn(settings.providerInstances, driver)) {
+        instances.push({ config: settings.providers[driver] });
+      }
+      for (const instance of instances) {
+        const environment = mergeProviderInstanceEnvironment(instance.environment, hostEnvironment);
+        const provider = driver === "claudeAgent" ? "claude" : driver;
+        let home: string;
+        if (driver === "codex") {
+          const decoded = decodeCodexSettings(instance.config ?? {});
+          if (Option.isNone(decoded)) continue;
+          const config = decoded.value;
+          const environmentHome = environment.CODEX_HOME?.trim();
+          const layout = yield* resolveCodexHomeLayout(
+            !config.homePath.trim() && !config.shadowHomePath.trim() && environmentHome
+              ? { ...config, homePath: environmentHome }
+              : config,
+          );
+          home = layout.sharedHomePath;
+        } else if (driver === "claudeAgent") {
+          const decoded = decodeClaudeSettings(instance.config ?? {});
+          if (Option.isNone(decoded)) continue;
+          const configured = decoded.value.homePath.trim();
+          home = configured
+            ? expandHomePath(configured)
+            : environment.CLAUDE_CONFIG_DIR?.trim() || path.join(NodeOS.homedir(), ".claude");
+        } else {
+          home = expandHomePath(
+            environment.GROK_HOME?.trim() || path.join(NodeOS.homedir(), ".grok"),
+          );
+        }
+        const directory = path.resolve(home, provider === "claude" ? "projects" : "sessions");
+        // Account aliases and Codex auth overlays can share the same history.
+        const dir = yield* fileSystem
+          .realPath(directory)
+          .pipe(Effect.orElseSucceed(() => directory));
+        const key = `${provider}\0${dir}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        dirs.push({ provider, dir, ...(provider === "grok" ? { fileName: "updates.jsonl" } : {}) });
+        if (driver === "codex") {
+          // KCA fork: rotated sessions live beside the live ones and are
+          // priced identically; keep covering them.
+          const archiveDir = path.join(path.dirname(dir), "archived_sessions");
+          const archiveKey = `${provider}\0${archiveDir}`;
+          if (!seen.has(archiveKey)) {
+            seen.add(archiveKey);
+            dirs.push({ provider, dir: archiveDir });
+          }
+        }
+      }
+    }
+    // KCA fork: OpenCode usage comes from its SQLite database, not
+    // transcripts; the scan below reads it via dbFileName.
+    dirs.push({
+      provider: "opencode",
+      dir: resolveOpencodeDataDir(hostEnvironment),
+      dbFileName: OPENCODE_DB_FILENAME,
+    });
     return dirs;
   });
 

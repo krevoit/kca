@@ -6,6 +6,7 @@ import * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import * as Semaphore from "effect/Semaphore";
+import type { HttpClient } from "effect/unstable/http";
 
 import * as ProcessRunner from "../processRunner.ts";
 
@@ -16,7 +17,6 @@ import * as ProcessRunner from "../processRunner.ts";
  * switching over, never `npx kca-code`, whose cache is ephemeral and whose
  * registry fetch at boot would make startup depend on the network.
  */
-
 const PINNED_RUNTIME_DIR = "runtime";
 const PINNED_RUNTIME_INSTALL_TIMEOUT = Duration.minutes(10);
 // Boot-service setup and remote update can construct separate layers. Serialize
@@ -25,16 +25,32 @@ const pinnedRuntimeInstallLock = Semaphore.makeUnsafe(1);
 
 export interface PinnedRuntimePaths {
   readonly versionDir: string;
+  /** The executable. Its existence is what marks a runtime as present. */
   readonly entryPath: string;
   readonly sentinelPath: string;
+}
+
+/** The exact command that runs a pinned runtime. */
+export function pinnedRuntimeCommand(paths: PinnedRuntimePaths): {
+  readonly command: string;
+  readonly args: ReadonlyArray<string>;
+} {
+  return { command: paths.entryPath, args: [] };
+}
+
+export function pinnedRuntimeVersionsDir(path: Path.Path, baseDir: string): string {
+  return path.join(baseDir, PINNED_RUNTIME_DIR, "versions");
 }
 
 export function pinnedRuntimePaths(
   path: Path.Path,
   baseDir: string,
   version: string,
+  // KCA fork: the npm layout is platform-independent; kept for signature
+  // parity with upstream (whose archive layout picks an executable per OS).
+  _platform: NodeJS.Platform,
 ): PinnedRuntimePaths {
-  const versionDir = path.join(baseDir, PINNED_RUNTIME_DIR, "versions", version);
+  const versionDir = path.join(pinnedRuntimeVersionsDir(path, baseDir), version);
   return {
     versionDir,
     entryPath: path.join(versionDir, "node_modules", "kca-code", "dist", "bin.mjs"),
@@ -87,13 +103,17 @@ interface PinnedRuntimeInstallInput {
   readonly validate: (
     paths: PinnedRuntimePaths,
   ) => Effect.Effect<void, PinnedRuntimeInstallError | PinnedRuntimePreflightBlockedError>;
+  readonly platform: NodeJS.Platform;
+  readonly arch: string;
+  readonly httpClient: HttpClient.HttpClient;
+  readonly releaseBaseUrl?: string | undefined;
 }
 
 const installPinnedRuntime = Effect.fn("cloud.pinned_runtime.ensure_installed")(function* (
   input: PinnedRuntimeInstallInput,
 ) {
   const { fs, runner } = input;
-  const paths = pinnedRuntimePaths(input.path, input.baseDir, input.version);
+  const paths = pinnedRuntimePaths(input.path, input.baseDir, input.version, input.platform);
   const [versionDirExists, entryExists, sentinel] = yield* Effect.all([
     fs.exists(paths.versionDir),
     fs.exists(paths.entryPath),

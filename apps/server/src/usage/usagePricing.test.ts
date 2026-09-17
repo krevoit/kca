@@ -184,6 +184,35 @@ describe("usage pricing", () => {
     expect(lookupRate(table, "other-model-free")).toBeNull();
   });
 
+  it("prices aliased models at their target's rate, including the free variant", () => {
+    const table = parseRateTable({
+      "zai/glm-5.3-flash": {
+        input_cost_per_token: 0.15e-6,
+        output_cost_per_token: 0.5e-6,
+        cache_read_input_token_cost: 0.03e-6,
+      },
+    });
+
+    // x-preview-f is served free through OpenCode; both spellings price at
+    // GLM 5.3 Flash rates rather than showing unpriced.
+    expect(lookupRate(table, "x-preview-f")).toEqual(lookupRate(table, "zai/glm-5.3-flash"));
+    expect(lookupRate(table, "x-preview-f-free")).toEqual(lookupRate(table, "zai/glm-5.3-flash"));
+
+    const priced = priceUsage(table, "x-preview-f-free", totals, null);
+    expect(priced.costSource).toBe("modelPriced");
+    // 1M tokens each at $0.15 in / $0.50 out / $0.03 cached / $0.15 creation.
+    expect(priced.costUsd).toBeCloseTo(0.15 + 0.03 + 0.15 + 0.5, 12);
+  });
+
+  it("prefers an explicit entry over a rate alias", () => {
+    const table = parseRateTable({
+      "zai/glm-5.3-flash": rate(2),
+      "x-preview-f-free": rate(9),
+    });
+
+    expect(lookupRate(table, "x-preview-f-free")?.inputCostPerToken).toBe(9);
+  });
+
   it("keeps unpriceable names unpriced even with a free-tier suffix", () => {
     const table = withBuiltinRates(parseRateTable({}));
 
