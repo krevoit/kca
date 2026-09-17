@@ -10,6 +10,8 @@ import * as NodeFS from "node:fs";
 import * as NodeFSP from "node:fs/promises";
 import * as NodePath from "node:path";
 
+import { isEntrypoint } from "./entrypoint.ts";
+
 import type {
   PendingServiceUpdate,
   ServiceLauncherChildMessage,
@@ -632,4 +634,21 @@ export async function main(): Promise<void> {
   const statePath = NodePath.join(baseDir, "runtime", SERVICE_STATE_FILE);
   const state = await readServiceState(statePath);
   await new Launcher(baseDir, state).run();
+}
+
+// KCA fork: the standalone bundle below runs this when executed directly
+// (the boot service unit points at it). Upstream instead hosts the launcher
+// as a hidden subcommand of its self-contained executable.
+if (
+  isEntrypoint({
+    moduleUrl: import.meta.url,
+    entryPath: process.argv[1],
+    runtimeMain: import.meta.main,
+  })
+) {
+  main().catch((cause: unknown) => {
+    const error = cause instanceof Error ? cause : new Error(String(cause));
+    process.stderr.write(`[service-launcher] ${error.message}\n`);
+    process.exitCode = 1;
+  });
 }

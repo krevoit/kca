@@ -565,7 +565,9 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: desktop-${{ inputs.platform }}-${{ inputs.arch }}
+          # The target is part of the name: one platform/arch can ship two
+          # targets (the fork's Linux AppImage and deb jobs share linux-x64).
+          name: desktop-${{ inputs.platform }}-${{ inputs.target }}-${{ inputs.arch }}
           path: release-publish/*
           if-no-files-found: error
 
