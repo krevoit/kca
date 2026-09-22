@@ -1,16 +1,15 @@
 // @effect-diagnostics nodeBuiltinImport:off
 // @effect-diagnostics globalTimers:off
-// This file is shipped as a standalone bundle and copied to a stable path by
-// `kca service update`. The launcher supervises the server child for the boot
-// service and must keep working across server versions, so it stays on Node
-// built-ins with no Effect runtime.
+// Launcher library behind both the `__service-launcher` CLI subcommand and
+// the standalone service-launcher.mjs bundle (see service-launcher.ts). It
+// supervises the server child for the boot service and must keep working
+// across server versions, so it stays on Node built-ins with no Effect
+// runtime.
 import * as NodeChildProcess from "node:child_process";
 import * as NodeCrypto from "node:crypto";
 import * as NodeFS from "node:fs";
 import * as NodeFSP from "node:fs/promises";
 import * as NodePath from "node:path";
-
-import { isEntrypoint } from "./entrypoint.ts";
 
 import type {
   PendingServiceUpdate,
@@ -634,21 +633,4 @@ export async function main(): Promise<void> {
   const statePath = NodePath.join(baseDir, "runtime", SERVICE_STATE_FILE);
   const state = await readServiceState(statePath);
   await new Launcher(baseDir, state).run();
-}
-
-// KCA fork: the standalone bundle below runs this when executed directly
-// (the boot service unit points at it). Upstream instead hosts the launcher
-// as a hidden subcommand of its self-contained executable.
-if (
-  isEntrypoint({
-    moduleUrl: import.meta.url,
-    entryPath: process.argv[1],
-    runtimeMain: import.meta.main,
-  })
-) {
-  main().catch((cause: unknown) => {
-    const error = cause instanceof Error ? cause : new Error(String(cause));
-    process.stderr.write(`[service-launcher] ${error.message}\n`);
-    process.exitCode = 1;
-  });
 }

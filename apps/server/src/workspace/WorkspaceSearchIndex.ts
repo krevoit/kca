@@ -30,9 +30,22 @@ import { isWorkspaceImagePreviewPath } from "@t3tools/shared/filePreview";
 // fff-node stays external to the CLI bundle because it dlopens a native
 // library. A static `import` of an external package is a hard error inside a
 // Node single-executable (only built-ins resolve there), so load it through
-// `require`, which reads from the real filesystem in every runtime.
+// `require`, which reads from the real filesystem in every runtime. Plain npm
+// installs lack the workspace pnpm patch that adds a `require` condition to
+// fff-node's exports map, so fall back to a dynamic `import` when require
+// fails export resolution there.
 const requireForFff = NodeModule.createRequire(import.meta.url);
-const { FileFinder } = requireForFff("@ff-labs/fff-node") as typeof import("@ff-labs/fff-node");
+async function loadFffModule(): Promise<typeof import("@ff-labs/fff-node")> {
+  try {
+    return requireForFff("@ff-labs/fff-node") as typeof import("@ff-labs/fff-node");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException | null)?.code !== "ERR_PACKAGE_PATH_NOT_EXPORTED") {
+      throw error;
+    }
+    return import("@ff-labs/fff-node");
+  }
+}
+const { FileFinder } = await loadFffModule();
 
 const WORKSPACE_INDEX_MAX_ENTRIES = 25_000;
 const WORKSPACE_INDEX_PAGE_SIZE = WORKSPACE_INDEX_MAX_ENTRIES + 2;
