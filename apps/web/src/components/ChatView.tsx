@@ -9855,7 +9855,7 @@ export default function ChatView(props: ChatViewProps) {
                 in the wrapper (not the list inset) so rows never hide under
                 the composer or note lane. */}
             <div
-              className="relative flex min-h-0 flex-1 flex-col bg-background"
+              className="relative flex min-h-0 flex-1 flex-col bg-background chat-timeline-viewport"
               style={!isDraftHeroState ? { paddingBottom: composerTimelineInset } : undefined}
             >
               <div className="relative min-h-0 flex-1">

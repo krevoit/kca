@@ -2122,7 +2122,8 @@ code {
 }
 
 [data-chat-wallpaper="true"] .chat-surface,
-[data-chat-wallpaper="true"] .chat-thread-panel {
+[data-chat-wallpaper="true"] .chat-thread-panel,
+[data-chat-wallpaper="true"] .chat-timeline-viewport {
   background: transparent;
 }
 /* Rich text composer (Tiptap). The stored prompt stays markdown; only the
