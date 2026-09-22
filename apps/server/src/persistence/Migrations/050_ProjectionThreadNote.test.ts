@@ -6,7 +6,7 @@ import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
 import { runMigrations } from "../Migrations.ts";
 import migrateNote from "./050_ProjectionThreadNote.ts";
 
-it.layer(NodeSqliteClient.layerMemory())("050_ProjectionThreadNote", (it) => {
+it.layer(NodeSqliteClient.layer({ filename: ":memory:" }))("050_ProjectionThreadNote", (it) => {
   it.effect("adds a nullable note column without touching existing rows", () =>
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
