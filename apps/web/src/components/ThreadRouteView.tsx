@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import ChatView from "./ChatView";
 import { resolveDraftPromotionNavigationTarget, threadHasStarted } from "./ChatView.logic";
 import { waitForDraftHeroTransition } from "./chat/draftHeroTransition";
-import { SidebarInset } from "./ui/sidebar";
+import { ChatWorkspace } from "./chat/ChatWorkspace";
 import {
   finalizePromotedDraftThreadByRef,
   markPromotedDraftThreadByRef,
@@ -206,9 +206,11 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
     );
   }
 
+  // ChatWorkspace (not a bare SidebarInset) so the fork's custom chat
+  // background renders behind thread views too, not just the index routes.
   return (
-    <SidebarInset className="h-svh min-h-0 overflow-hidden overscroll-y-none md:h-dvh">
+    <ChatWorkspace className="h-svh min-h-0 overflow-hidden overscroll-y-none md:h-dvh">
       {view}
-    </SidebarInset>
+    </ChatWorkspace>
   );
 }
