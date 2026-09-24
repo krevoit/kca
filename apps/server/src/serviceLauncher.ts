@@ -60,7 +60,6 @@ const runtimeSpawnArguments = (paths: ReturnType<typeof runtimePaths>) => ({
   // Spawn under this process's own Node rather than executing the entry
   // directly: its `env node` shebang resolves against the service manager's
   // PATH, which may name an older Node than the launcher itself runs on.
-  // oxlint-disable-next-line t3code/no-global-process-runtime -- Standalone launcher has no Effect runtime.
   command: process.execPath,
   args: [paths.entryPath, "serve"],
 });
