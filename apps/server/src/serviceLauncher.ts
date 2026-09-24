@@ -57,8 +57,12 @@ const runtimePaths = (baseDir: string, version: string) => {
 };
 
 const runtimeSpawnArguments = (paths: ReturnType<typeof runtimePaths>) => ({
-  command: paths.entryPath,
-  args: ["serve"],
+  // Spawn under this process's own Node rather than executing the entry
+  // directly: its `env node` shebang resolves against the service manager's
+  // PATH, which may name an older Node than the launcher itself runs on.
+  // oxlint-disable-next-line t3code/no-global-process-runtime -- Standalone launcher has no Effect runtime.
+  command: process.execPath,
+  args: [paths.entryPath, "serve"],
 });
 
 /** SQLite persists across the main file plus its WAL and shared-memory sidecars. */
