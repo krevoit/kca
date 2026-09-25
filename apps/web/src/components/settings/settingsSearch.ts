@@ -491,6 +491,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["project thread tree flat list grouped"],
   },
   {
+    id: "thread-density",
+    title: "Thread density",
+    to: "/settings/general",
+    searchTerms: ["sidebar comfortable compact thread rows status"],
+  },
+  {
     id: "keybindings",
     title: "Keybindings",
     to: "/settings/keybindings",

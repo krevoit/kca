@@ -14,6 +14,8 @@ import {
   setDefaultAdvertisedEndpointKey,
   setProjectExpanded,
   setSidebarProjectScopeKey,
+  setSidebarProjectsVisible,
+  setSidebarThreadDensity,
   setThreadChangedFilesExpanded,
   type UiState,
 } from "./uiStateStore";
@@ -23,6 +25,8 @@ function makeUiState(overrides: Partial<UiState> = {}): UiState {
     projectExpandedById: {},
     projectOrder: [],
     sidebarProjectScopeKey: null,
+    sidebarThreadDensity: "comfortable",
+    sidebarProjectsVisible: true,
     threadLastVisitedAtById: {},
     threadChangedFilesExpandedById: {},
     defaultAdvertisedEndpointKey: null,
@@ -156,6 +160,24 @@ describe("uiStateStore pure functions", () => {
     expect(setSidebarProjectScopeKey(scoped, null).sidebarProjectScopeKey).toBeNull();
     expect(setSidebarProjectScopeKey(scoped, "").sidebarProjectScopeKey).toBeNull();
   });
+
+  it("collapses and restores the sidebar projects pane", () => {
+    const collapsed = setSidebarProjectsVisible(makeUiState(), false);
+
+    expect(collapsed.sidebarProjectsVisible).toBe(false);
+    expect(setSidebarProjectsVisible(collapsed, false)).toBe(collapsed);
+    expect(setSidebarProjectsVisible(collapsed, true).sidebarProjectsVisible).toBe(true);
+  });
+
+  it("stores the sidebar thread density and keeps the comfortable default", () => {
+    const compact = setSidebarThreadDensity(makeUiState(), "compact");
+
+    expect(compact.sidebarThreadDensity).toBe("compact");
+    expect(setSidebarThreadDensity(compact, "compact")).toBe(compact);
+    expect(setSidebarThreadDensity(compact, "comfortable").sidebarThreadDensity).toBe(
+      "comfortable",
+    );
+  });
 });
 
 describe("parsePersistedState", () => {
@@ -169,6 +191,16 @@ describe("parsePersistedState", () => {
 
     expect(parsed.pullRequestMergeMethod).toBe("squash");
     expect(invalid.pullRequestMergeMethod).toBe("merge");
+  });
+
+  it("hydrates the sidebar thread density and falls back to comfortable", () => {
+    expect(parsePersistedState({ sidebarThreadDensity: "compact" }).sidebarThreadDensity).toBe(
+      "compact",
+    );
+    expect(
+      parsePersistedState({ sidebarThreadDensity: "spacious" as never }).sidebarThreadDensity,
+    ).toBe("comfortable");
+    expect(parsePersistedState({}).sidebarThreadDensity).toBe("comfortable");
   });
 
   it("hydrates raw UI-owned state without server entities", () => {
@@ -202,6 +234,8 @@ describe("parsePersistedState", () => {
       },
       defaultAdvertisedEndpointKey: "desktop-core:lan:http",
       sidebarProjectScopeKey: null,
+      sidebarThreadDensity: "comfortable",
+      sidebarProjectsVisible: true,
       pullRequestMergeMethod: "merge",
       threadChangedFilesExpandedById: {
         "environment:thread-1": {
@@ -324,6 +358,8 @@ describe("uiStateStore persistence", () => {
       },
       defaultAdvertisedEndpointKey: "desktop-core:lan:http",
       sidebarProjectScopeKey: null,
+      sidebarThreadDensity: "comfortable",
+      sidebarProjectsVisible: true,
       threadChangedFilesExpansionVersion: 2,
       threadChangedFilesExpandedById: {
         "environment:thread-1": {
@@ -348,6 +384,29 @@ describe("uiStateStore persistence", () => {
     expect(parsePersistedState(persisted).sidebarProjectScopeKey).toBe(
       "github.com/pingdotgg/t3code",
     );
+  });
+
+  it("restores a collapsed projects pane across reloads", () => {
+    persistState(makeUiState({ sidebarProjectsVisible: false }));
+
+    const persisted = JSON.parse(
+      localStorageStub.getItem(PERSISTED_STATE_KEY) ?? "{}",
+    ) as PersistedUiState;
+
+    expect(persisted.sidebarProjectsVisible).toBe(false);
+    expect(parsePersistedState(persisted).sidebarProjectsVisible).toBe(false);
+    expect(parsePersistedState({}).sidebarProjectsVisible).toBe(true);
+  });
+
+  it("restores the compact thread density across reloads", () => {
+    persistState(makeUiState({ sidebarThreadDensity: "compact" }));
+
+    const persisted = JSON.parse(
+      localStorageStub.getItem(PERSISTED_STATE_KEY) ?? "{}",
+    ) as PersistedUiState;
+
+    expect(persisted.sidebarThreadDensity).toBe("compact");
+    expect(parsePersistedState(persisted).sidebarThreadDensity).toBe("compact");
   });
 
   it("drops the temporary expanded-only migration fallback when rewriting state", () => {

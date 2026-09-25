@@ -140,6 +140,8 @@ import {
 } from "../ui/number-field";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
+import { Toggle, ToggleGroup } from "../ui/toggle-group";
+import { useUiStateStore, type SidebarThreadDensity } from "../../uiStateStore";
 import { ScopedSwitch } from "./ScopedSwitch";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -2095,6 +2097,11 @@ export function GeneralSettingsPanel() {
   const hasServerTargets = connectedEnvironments.length > 0;
   const [backgroundActivityDialogOpen, setBackgroundActivityDialogOpen] = useState(false);
   const [tokenStreamingWarningOpen, setTokenStreamingWarningOpen] = useState(false);
+  // Thread density is a client-local view option (not synced server
+  // settings): comfortable rows show full details, compact rows hide status
+  // pills and shrink live cards to single lines.
+  const sidebarThreadDensity = useUiStateStore((state) => state.sidebarThreadDensity);
+  const setSidebarThreadDensity = useUiStateStore((state) => state.setSidebarThreadDensity);
   const mixedResponseStreamingMode = useScopedSettingsMixed(["responseStreamingMode"]);
   const lastEnabledProjectGroupingMode = useRef<SidebarProjectGroupingMode>(
     readLastEnabledProjectGroupingMode(),
@@ -2226,6 +2233,38 @@ export function GeneralSettingsPanel() {
               }
               aria-label="Sidebar"
             />
+          }
+        />
+
+        <SettingsRow
+          {...searchableSetting("thread-density")}
+          description="Comfortable thread rows show full details; compact rows hide status pills and shrink live cards to single lines."
+          resetAction={
+            sidebarThreadDensity !== "comfortable" ? (
+              <SettingResetButton
+                label="thread density"
+                onClick={() => setSidebarThreadDensity("comfortable")}
+              />
+            ) : null
+          }
+          control={
+            <ToggleGroup
+              aria-label="Thread density"
+              variant="segmented"
+              value={[sidebarThreadDensity]}
+              onValueChange={(next) => {
+                const selected: SidebarThreadDensity | undefined =
+                  next[0] === "compact"
+                    ? "compact"
+                    : next[0] === "comfortable"
+                      ? "comfortable"
+                      : undefined;
+                if (selected) setSidebarThreadDensity(selected);
+              }}
+            >
+              <Toggle value="comfortable">Comfortable</Toggle>
+              <Toggle value="compact">Compact</Toggle>
+            </ToggleGroup>
           }
         />
 

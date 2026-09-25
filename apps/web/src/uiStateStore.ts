@@ -19,6 +19,8 @@ const LEGACY_PERSISTED_STATE_KEYS = [
   "codething:renderer-state:v1",
 ] as const;
 
+export type SidebarThreadDensity = "comfortable" | "compact";
+
 export interface PersistedUiState {
   projectExpandedById?: Record<string, boolean>;
   projectOrder?: string[];
@@ -28,6 +30,8 @@ export interface PersistedUiState {
   projectOrderCwds?: string[];
   defaultAdvertisedEndpointKey?: string | null;
   sidebarProjectScopeKey?: string | null;
+  sidebarThreadDensity?: SidebarThreadDensity;
+  sidebarProjectsVisible?: boolean;
   threadChangedFilesExpansionVersion?: number;
   threadChangedFilesExpandedById?: Record<string, Record<string, boolean>>;
   pullRequestMergeMethod?: string;
@@ -40,6 +44,13 @@ export interface UiProjectState {
   // projects". Lives here so routes that unmount the sidebar (Settings)
   // cannot reset the filter.
   sidebarProjectScopeKey: string | null;
+  // Sidebar thread density: "comfortable" renders active/pinned threads as
+  // full cards, "compact" renders every row slim. Client-local view option,
+  // persisted alongside the project scope it modifies.
+  sidebarThreadDensity: SidebarThreadDensity;
+  // Whether the projects pane of the two-pane sidebar is visible. Collapsing
+  // it gives the threads pane the full sidebar width.
+  sidebarProjectsVisible: boolean;
 }
 
 export interface UiThreadState {
@@ -58,10 +69,16 @@ export interface UiPullRequestState {
 export interface UiState
   extends UiProjectState, UiThreadState, UiEndpointState, UiPullRequestState {}
 
+function sanitizeBoolean(value: unknown, defaultValue: boolean): boolean {
+  return typeof value === "boolean" ? value : defaultValue;
+}
+
 const initialState: UiState = {
   projectExpandedById: {},
   projectOrder: [],
   sidebarProjectScopeKey: null,
+  sidebarThreadDensity: "comfortable",
+  sidebarProjectsVisible: true,
   threadLastVisitedAtById: {},
   threadChangedFilesExpandedById: {},
   defaultAdvertisedEndpointKey: null,
@@ -100,6 +117,10 @@ function sanitizeBooleanRecord(value: unknown): Record<string, boolean> {
 
 function sanitizeOptionalKey(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function sanitizeSidebarThreadDensity(value: unknown): SidebarThreadDensity {
+  return value === "compact" ? "compact" : "comfortable";
 }
 
 function sanitizeTimestampRecord(value: unknown): Record<string, string> {
@@ -155,6 +176,8 @@ export function parsePersistedState(parsed: PersistedUiState): UiState {
         : {},
     defaultAdvertisedEndpointKey: sanitizeOptionalKey(parsed.defaultAdvertisedEndpointKey),
     sidebarProjectScopeKey: sanitizeOptionalKey(parsed.sidebarProjectScopeKey),
+    sidebarThreadDensity: sanitizeSidebarThreadDensity(parsed.sidebarThreadDensity),
+    sidebarProjectsVisible: sanitizeBoolean(parsed.sidebarProjectsVisible, true),
     pullRequestMergeMethod: isPullRequestMergeMethod(parsed.pullRequestMergeMethod)
       ? parsed.pullRequestMergeMethod
       : initialState.pullRequestMergeMethod,
@@ -229,6 +252,8 @@ export function persistState(state: UiState): void {
         threadLastVisitedAtById: state.threadLastVisitedAtById,
         defaultAdvertisedEndpointKey: state.defaultAdvertisedEndpointKey,
         sidebarProjectScopeKey: state.sidebarProjectScopeKey,
+        sidebarThreadDensity: state.sidebarThreadDensity,
+        sidebarProjectsVisible: state.sidebarProjectsVisible,
         threadChangedFilesExpansionVersion: THREAD_CHANGED_FILES_EXPANSION_VERSION,
         threadChangedFilesExpandedById: state.threadChangedFilesExpandedById,
         pullRequestMergeMethod: state.pullRequestMergeMethod,
@@ -340,6 +365,27 @@ export function setSidebarProjectScopeKey(state: UiState, projectKey: string | n
   };
 }
 
+export function setSidebarThreadDensity(state: UiState, density: SidebarThreadDensity): UiState {
+  const nextDensity = sanitizeSidebarThreadDensity(density);
+  if (state.sidebarThreadDensity === nextDensity) {
+    return state;
+  }
+  return {
+    ...state,
+    sidebarThreadDensity: nextDensity,
+  };
+}
+
+export function setSidebarProjectsVisible(state: UiState, visible: boolean): UiState {
+  if (state.sidebarProjectsVisible === visible) {
+    return state;
+  }
+  return {
+    ...state,
+    sidebarProjectsVisible: visible,
+  };
+}
+
 function setPullRequestMergeMethod(state: UiState, method: PullRequestMergeMethod): UiState {
   return state.pullRequestMergeMethod === method
     ? state
@@ -429,6 +475,8 @@ interface UiStateStore extends UiState {
   setThreadChangedFilesExpanded: (threadId: string, turnId: string, expanded: boolean) => void;
   setDefaultAdvertisedEndpointKey: (key: string | null) => void;
   setSidebarProjectScopeKey: (projectKey: string | null) => void;
+  setSidebarThreadDensity: (density: SidebarThreadDensity) => void;
+  setSidebarProjectsVisible: (visible: boolean) => void;
   setPullRequestMergeMethod: (method: PullRequestMergeMethod) => void;
   setProjectExpanded: (projectIds: string | readonly string[], expanded: boolean) => void;
   reorderProjects: (
@@ -450,6 +498,8 @@ export const useUiStateStore = create<UiStateStore>((set) => ({
     set((state) => setDefaultAdvertisedEndpointKey(state, key)),
   setSidebarProjectScopeKey: (projectKey) =>
     set((state) => setSidebarProjectScopeKey(state, projectKey)),
+  setSidebarThreadDensity: (density) => set((state) => setSidebarThreadDensity(state, density)),
+  setSidebarProjectsVisible: (visible) => set((state) => setSidebarProjectsVisible(state, visible)),
   setPullRequestMergeMethod: (method) => set((state) => setPullRequestMergeMethod(state, method)),
   setProjectExpanded: (projectIds, expanded) =>
     set((state) => setProjectExpanded(state, projectIds, expanded)),
