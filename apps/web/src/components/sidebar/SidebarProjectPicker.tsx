@@ -71,9 +71,7 @@ export const SidebarProjectPicker = memo(function SidebarProjectPicker(
               }
             >
               <FolderIcon className="size-6 shrink-0" />
-              <span className="w-full text-[8px] leading-tight font-medium wrap-break-word">
-                All
-              </span>
+              <span className="w-full text-4xs leading-tight font-medium wrap-break-word">All</span>
             </TooltipTrigger>
             <TooltipPopup side="right">All projects</TooltipPopup>
           </Tooltip>
@@ -100,7 +98,7 @@ export const SidebarProjectPicker = memo(function SidebarProjectPicker(
                   }
                 >
                   <ProjectFavicon project={project} className="size-6 shrink-0" />
-                  <span className="w-full text-[8px] leading-tight font-medium wrap-break-word">
+                  <span className="w-full text-4xs leading-tight font-medium wrap-break-word">
                     {project.displayName}
                   </span>
                 </TooltipTrigger>

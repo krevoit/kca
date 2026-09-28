@@ -205,8 +205,8 @@ export function WelcomeWizard({
           title="Set up KCA Code"
           identity={
             <div className="flex items-baseline gap-1.5" role="img" aria-label="KCA Code">
-              <KCAWordmark className="shrink-0 text-[1.4rem]" aria-hidden />
-              <span className="text-[1.4rem] font-medium tracking-tight text-muted-foreground">
+              <KCAWordmark className="shrink-0 text-2xl" aria-hidden />
+              <span className="text-2xl font-medium tracking-tight text-muted-foreground">
                 Code
               </span>
             </div>

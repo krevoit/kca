@@ -44,7 +44,7 @@ function ChatIndexRouteView() {
  */
 function ClosedChatsLanding() {
   return (
-    <ChatWorkspace className="h-dvh min-h-0 overflow-hidden bg-background text-foreground">
+    <ChatWorkspace className="h-dvh min-h-0 overflow-hidden">
       <WorkspacePageHeader electron={Boolean(window.desktopBridge)}>Chats</WorkspacePageHeader>
       <ChatTabs />
       <Empty className="flex-1">
@@ -115,7 +115,7 @@ function IndexDraftLanding() {
 
 function DraftStartError({ onRetry }: { readonly onRetry: () => void }) {
   return (
-    <ChatWorkspace className="h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
+    <ChatWorkspace className="h-dvh min-h-0 overflow-hidden overscroll-y-none">
       <Empty className="flex-1">
         <EmptyHeader className="max-w-md">
           <EmptyTitle>Couldn’t start a new thread</EmptyTitle>
@@ -150,7 +150,7 @@ function HostedStaticOnboardingState() {
       : "Open Connections and add that machine using its pairing link. This app must be able to reach it.";
 
   return (
-    <ChatWorkspace className="h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
+    <ChatWorkspace className="h-dvh min-h-0 overflow-hidden overscroll-y-none">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-background">
         <WorkspacePageHeader electron={isElectron} className="border-b border-border">
           <div className="flex items-center gap-2">

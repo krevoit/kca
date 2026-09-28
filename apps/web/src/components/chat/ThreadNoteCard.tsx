@@ -153,17 +153,17 @@ export function ThreadNoteCard({
           type="button"
           aria-label={hasThreadNote(note) ? "Open note" : "Add a note to this thread"}
           onClick={openWidget}
-          className="flex items-center gap-1.5 rounded-full border border-amber-500/45 bg-amber-500/10 py-1.5 pr-3 pl-2.5 text-xs text-amber-800 shadow-md backdrop-blur transition-colors hover:bg-amber-500/15 hover:text-amber-900 dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-200 dark:hover:bg-amber-400/15 dark:hover:text-amber-100"
+          className="flex items-center gap-1.5 rounded-full border border-warning bg-warning-surface py-1.5 pr-3 pl-2.5 text-xs text-warning-foreground shadow-md backdrop-blur transition-colors hover:bg-warning-surface hover:text-warning-foreground dark:border-warning dark:bg-warning-surface dark:text-warning-foreground dark:hover:bg-warning-surface dark:hover:text-warning-foreground"
         >
           <span className="relative flex items-center">
             <StickyNoteIcon
-              className="size-3.5 text-amber-600 dark:text-amber-400"
+              className="size-3.5 text-warning-foreground dark:text-warning-foreground"
               aria-hidden="true"
             />
             {hasThreadNote(note) ? (
               <span
                 aria-hidden
-                className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-amber-500"
+                className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-warning"
               />
             ) : null}
           </span>
@@ -188,17 +188,16 @@ export function ThreadNoteCard({
         }
       }}
     >
-      <div className="flex min-w-0 max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-xl border border-amber-500/45 bg-amber-500/10 px-3.5 py-2.5 shadow-xl dark:border-amber-400/40 dark:bg-amber-400/10">
-        <div className="flex items-center justify-between gap-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+      <div className="flex min-w-0 max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-xl border border-warning bg-warning-surface px-3.5 py-2.5 shadow-xl dark:border-warning dark:bg-warning-surface">
+        <div className="flex items-center justify-between gap-2 text-xs font-medium text-warning-foreground dark:text-warning-foreground">
           <div className="flex items-center gap-1.5">
             <StickyNoteIcon className="size-3.5" aria-hidden="true" />
             <span>Note</span>
           </div>
           <Button
-            variant="ghost"
-            size="xs"
+            variant="warning-outline"
+            size="icon-xs"
             aria-label="Close note"
-            className="h-6 px-1.5 text-muted-foreground"
             onClick={closeWidget}
           >
             <XIcon className="size-3" aria-hidden="true" />
@@ -262,21 +261,11 @@ export function ThreadNoteCard({
             </p>
             {canEdit ? (
               <div className="mt-2 flex justify-end gap-1">
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  className="h-6 gap-1 px-1.5 text-amber-700 dark:text-amber-300"
-                  onClick={startEditing}
-                >
+                <Button variant="warning-outline" size="xs" onClick={startEditing}>
                   <PencilIcon className="size-3" aria-hidden="true" />
                   Edit
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  className="h-6 gap-1 px-1.5 text-amber-700 dark:text-amber-300"
-                  onClick={() => void removeNote()}
-                >
+                <Button variant="warning-outline" size="xs" onClick={() => void removeNote()}>
                   <Trash2Icon className="size-3" aria-hidden="true" />
                   Remove
                 </Button>

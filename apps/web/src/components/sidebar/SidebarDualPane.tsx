@@ -27,9 +27,7 @@ export function SidebarDualPane(props: {
             scrollFadePadding={false}
             className="h-auto min-h-0 w-16 flex-none [&>[data-slot=scroll-area-viewport]]:[--fade-size:0.75rem]"
           >
-            <div className="flex w-full min-w-0 flex-col py-[var(--sidebar-content-inset)] pl-[var(--sidebar-content-inset)]">
-              {props.projects}
-            </div>
+            <div className="flex w-full min-w-0 flex-col py-2 pl-2">{props.projects}</div>
           </ScrollArea>
           <div aria-hidden className="mx-1 w-px shrink-0 self-stretch bg-sidebar-border/60" />
         </>
@@ -40,9 +38,7 @@ export function SidebarDualPane(props: {
         scrollFadePadding={false}
         className="h-auto min-h-0 min-w-0 flex-1 [&>[data-slot=scroll-area-viewport]]:[--fade-size:0.75rem]"
       >
-        <div className="flex w-full min-w-0 flex-col py-[var(--sidebar-content-inset)] pr-[var(--sidebar-content-inset)]">
-          {props.threads}
-        </div>
+        <div className="flex w-full min-w-0 flex-col py-2 pr-2">{props.threads}</div>
       </ScrollArea>
     </div>
   );

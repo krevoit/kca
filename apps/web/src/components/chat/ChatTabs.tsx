@@ -112,7 +112,7 @@ function ChatTabItem({
               role="tab"
               aria-selected={active}
               tabIndex={focusable ? 0 : -1}
-              className="flex h-7 max-w-52 min-w-20 items-center gap-1.5 truncate px-2.5 text-xs outline-offset-[-2px]"
+              className="flex h-7 max-w-52 min-w-20 items-center gap-1.5 truncate px-2.5 text-xs -outline-offset-2"
               onClick={onSelect}
               onAuxClick={(event) => {
                 if (event.button === 1) {
