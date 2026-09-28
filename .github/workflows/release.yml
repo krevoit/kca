@@ -620,10 +620,20 @@ jobs:
     name: Publish CLI to npm
     # KCA fork: opt-in. Publishes the `kca-code` package (bin: `kca`), so this
     # stays skipped unless the fork sets the KCA_PUBLISH_NPM repo variable to
-    # 'true' (and has claimed the name on npm). It builds the CLI itself, so it
-    # needs only the quality gate, not the desktop jobs.
-    needs: [preflight, relay_public_config, quality]
-    if: ${{ !failure() && !cancelled() && vars.KCA_PUBLISH_NPM == 'true' && needs.preflight.result == 'success' && needs.relay_public_config.result == 'success' && needs.quality.result == 'success' }}
+    # 'true' (and has claimed the name on npm). It builds the CLI itself, but
+    # bundles the resource-monitor binaries the desktop jobs upload, so it
+    # waits for those jobs: downloading before they finish yields an empty
+    # glob and fails the bundle step.
+    needs:
+      [
+        preflight,
+        relay_public_config,
+        quality,
+        desktop_mac_arm64,
+        desktop_linux_x64,
+        desktop_linux_deb,
+      ]
+    if: ${{ !failure() && !cancelled() && vars.KCA_PUBLISH_NPM == 'true' && needs.preflight.result == 'success' && needs.relay_public_config.result == 'success' && needs.quality.result == 'success' && needs.desktop_mac_arm64.result == 'success' && needs.desktop_linux_x64.result == 'success' && needs.desktop_linux_deb.result == 'success' }}
     runs-on: ubuntu-24.04 # blacksmith-8vcpu-ubuntu-2404
     timeout-minutes: 15
     permissions:
