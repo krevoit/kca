@@ -68,10 +68,13 @@ import Migration0051PullRequests from "./Migrations/050_ProjectionThreadPullRequ
 // MessageContext. MessageContext therefore lands on 52 here so existing fork
 // databases migrate cleanly; upstream migrations after that shift by one
 // (TitleState is upstream 052, fork 53; PullRequestFilesViewed is upstream
-// 053, fork 54; and so on).
+// 053, fork 54; and so on). Upstream's AutoSettleDisabledAt (upstream id 54)
+// lands on 55 for the same reason; it lives in the 054_ file because only
+// Migrations.ts is being merged here.
 import Migration0052MessageContext from "./Migrations/051_ProjectionThreadMessageContext.ts";
 import Migration0053TitleState from "./Migrations/052_ProjectionThreadTitleState.ts";
 import Migration0054PullRequestFilesViewed from "./Migrations/053_PullRequestFilesViewed.ts";
+import Migration0055AutoSettleDisabledAt from "./Migrations/054_ProjectionThreadsAutoSettleDisabledAt.ts";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -138,6 +141,7 @@ const migrationEntries = [
   [52, "ProjectionThreadMessageContext", Migration0052MessageContext],
   [53, "ProjectionThreadTitleState", Migration0053TitleState],
   [54, "PullRequestFilesViewed", Migration0054PullRequestFilesViewed],
+  [55, "ProjectionThreadsAutoSettleDisabledAt", Migration0055AutoSettleDisabledAt],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

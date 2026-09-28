@@ -39,6 +39,11 @@ What the fork changes:
   composer and the expanded card grows vertically instead of covering chat;
   on mobile the same collapsed chip sits above the feed and expands in place,
   slim enough to stay clear of the composer.
+- **Two-pane sidebar.** A narrow projects rail (logo tiles, collapsible)
+  sits beside the threads list on web/desktop: pick a project to see just
+  its threads, flat and uncapped, or All for the grouped tree. **Thread
+  density** under **Settings → General** switches comfortable and compact
+  thread rows.
 - **Binaries from this repo.** Linux AppImage + `.deb` and Apple Silicon DMG
   are built by this repo's Release workflow, and the desktop app auto-updates
   from `krevoit/kca` releases. Server self-update and remote-install messages
@@ -128,6 +133,74 @@ the full WebUI on port 8080; put it behind Caddy/Nginx with TLS if you expose
 it beyond your LAN/Tailnet.
 
 **C. From source.** Requires Node.js 24+ and the `vp` toolchain:
+
+#### Debian, Ubuntu (`.deb`)
+
+Download the `.deb` from [GitHub Releases](https://github.com/pingdotgg/t3code/releases), then:
+
+```bash
+sudo apt install ./T3-Code-*.deb
+```
+
+#### Arch Linux (AUR)
+
+Stable:
+
+```bash
+yay -S t3code-bin
+```
+
+Nightly:
+
+```bash
+yay -S t3code-nightly-bin
+```
+
+The AUR packaging is maintained in this repository under [`packaging/aur`](./packaging/aur).
+
+## Some notes
+
+We are very very early in this project. Expect bugs.
+
+We are (mostly) not accepting contributions yet. Small fixes may be considered. Big features will not be.
+
+## Documentation
+
+Full docs live in [docs/](./docs). There's no docs site yet.
+
+- [Install and first run](./docs/user/install.md)
+- [Permission modes](./docs/user/permission-modes.md)
+- [Keyboard shortcuts](./docs/user/keybindings.md)
+- [Project settings](./docs/user/project-settings.md)
+- [Remote access from a phone or another machine](./docs/user/remote-access.md)
+- [Keeping app and server in sync](./docs/user/updating.md)
+- [Source control integrations](./docs/user/source-control.md)
+- Multiple accounts: [Codex](./docs/user/providers-codex.md) · [Claude](./docs/user/providers-claude.md)
+- [Run T3 Code as a background service](./docs/user/background-service.md)
+
+Building from source? Start at [docs/internals/overview.md](./docs/internals/overview.md).
+
+## If you REALLY want to contribute still.... read this first
+
+### Install `vp`
+
+T3 Code uses Vite+ so you'll need to install the global `vp` command-line tool.
+
+#### macOS / Linux
+
+```bash
+curl -fsSL https://vite.plus | bash
+```
+
+#### Windows
+
+```bash
+irm https://vite.plus/ps1 | iex
+```
+
+Checkout their getting started guide for more information: https://viteplus.dev/guide/
+
+### Install dependencies
 
 ```bash
 curl -fsSL https://vite.plus | bash   # provides `vp`

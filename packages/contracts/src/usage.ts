@@ -3,12 +3,13 @@
  *
  * Each environment scans the provider CLIs' own on-disk session transcripts
  * (`~/.claude/projects/**\/*.jsonl`, `~/.codex/sessions/**\/*.jsonl`,
- * `~/.grok/sessions/**\/updates.jsonl`, and OpenCode's `opencode.db` under the
- * XDG data directory) rather than relying on T3 Code's own
- * orchestration projections, so usage stays complete even for turns that were
- * never driven through T3 Code. This mirrors the approach `ccusage` takes.
+ * `~/.grok/sessions/**\/updates.jsonl`, OpenCode's `opencode.db` under the
+ * XDG data directory, and Cursor/Antigravity history) rather than relying on
+ * T3 Code's own orchestration projections, so usage stays complete even for
+ * turns that were never driven through T3 Code. This mirrors the approach
+ * `ccusage` takes. Source status describes gaps in local coverage.
  *
- * Environments return pre-aggregated `(day, hourStart?, provider, model)`
+ * Environments return pre-aggregated `(day, hourStart?, provider, model, sourcePath?)`
  * buckets. Raw transcript records never cross the wire.
  *
  * @module usage
@@ -29,11 +30,19 @@ export const USAGE_CONTRACT_VERSION = 6 as const;
  *
  * v5 only adds `grok` to {@link UsageProviderKind}; v4 Claude/Codex buckets
  * remain valid, so mixed-version environments keep those totals instead of
- * treating every older server as stale. v6 adds `opencode` the same way.
+ * treating every older server as stale. v6 adds `opencode`, `cursor`, and
+ * `antigravity` the same way.
  */
 export const USAGE_MERGE_COMPATIBLE_SINCE = 4 as const;
 
-export const UsageProviderKind = Schema.Literals(["claude", "codex", "grok", "opencode"]);
+export const UsageProviderKind = Schema.Literals([
+  "claude",
+  "codex",
+  "grok",
+  "cursor",
+  "opencode",
+  "antigravity",
+]);
 export type UsageProviderKind = typeof UsageProviderKind.Type;
 
 /**
@@ -94,6 +103,8 @@ export const UsageBucket = Schema.Struct({
   hourStart: Schema.optional(TrimmedNonEmptyString),
   provider: UsageProviderKind,
   model: TrimmedNonEmptyString,
+  /** Source directory, so overlapping multi-home environments merge once per source. */
+  sourcePath: Schema.optional(TrimmedNonEmptyString),
   totals: UsageTokenTotals,
   costUsd: Schema.Number,
   /**
@@ -152,6 +163,8 @@ export const UsageSource = Schema.Struct({
    */
   distinctSessions: NonNegativeInt,
   message: Schema.NullOr(TrimmedNonEmptyString),
+  /** An action the client can offer to make this source available. */
+  action: Schema.optionalKey(Schema.Literal("enableCursorKeychain")),
 });
 export type UsageSource = typeof UsageSource.Type;
 

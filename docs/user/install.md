@@ -91,6 +91,10 @@ Download a release from [GitHub Releases](https://github.com/krevoit/kca/release
 | macOS (Apple Silicon) | `KCA-<version>-arm64.dmg`                                                   |
 | Debian / Ubuntu       | `sudo apt install ./KCA-<version>-amd64.deb` (an AppImage is published too) |
 
+The `.deb` updates itself like the other desktop builds. It asks for your
+password to install each update. If your desktop has no password prompt, the
+update fails. Download the new `.deb` and install it the same way.
+
 macOS builds are signed and notarized, so in-place auto-update works.
 Windows is not shipped.
 
@@ -141,6 +145,12 @@ Provider CLIs must be on the server's `PATH`. If KCA cannot find one, set its
 **Binary path** in provider settings, especially when using a version manager.
 Cursor's executable is `cursor-agent`, although its login command is
 `agent login`. Antigravity can use its managed runtime without a `PATH` entry.
+
+T3 Code warns when a provider version has known compatibility problems with your
+release. Check **Settings → Providers** on that environment for the recommended
+version or range. When its package manager supports installing a specific version,
+you can install the recommendation there. Otherwise use the provider's installer
+on the environment's machine. An unlisted version is unverified.
 
 When a provider CLI is behind its latest release, its provider card shows the
 available version. **Update now** appears only when KCA can tell which

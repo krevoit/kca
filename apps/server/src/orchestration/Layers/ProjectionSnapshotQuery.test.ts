@@ -486,6 +486,7 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
           pinOrderKey: "gm",
           activeOrderKey: "hq",
           note: null,
+          autoSettleDisabledAt: null,
           titleRegeneration: null,
           titleState: null,
           deletedAt: null,
@@ -613,6 +614,7 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
           pinOrderKey: "gm",
           activeOrderKey: "hq",
           note: null,
+          autoSettleDisabledAt: null,
           titleRegeneration: null,
           titleState: null,
           session: {
