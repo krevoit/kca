@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 
+import { cursorRateModel } from "./cursorUsageReader.ts";
 import {
   builtinRateTable,
   cacheSavingsUsd,
@@ -49,6 +50,26 @@ describe("usage pricing", () => {
       });
     }
     expect(cacheSavingsUsd(table, record("example-model"), overrides)).toBe(1.5);
+  });
+
+  it("prices Cursor cache savings at the base model rate", () => {
+    const table = parseRateTable({
+      "claude-fable-5-1": rate(10e-6, 1e-6),
+      "xai/grok-4.7": rate(2e-6, 0.5e-6),
+      "openrouter/x-ai/grok-4.7": rate(3e-6, 0.5e-6),
+    });
+    const cursorRecord = (model: string) => ({
+      ...record(model, 0.25),
+      rateModel: cursorRateModel(model),
+    });
+
+    expect(cacheSavingsUsd(table, cursorRecord("claude-fable-5-1-thinking-high"))).toBeCloseTo(9);
+    expect(cacheSavingsUsd(table, cursorRecord("cursor-grok-4.7-high-fast"))).toBeCloseTo(1.5);
+    expect(cacheSavingsUsd(table, cursorRecord("default"))).toBe(0);
+    expect(priceUsage(table, cursorRecord("grok-4.7-xhigh-fast"))).toEqual({
+      costUsd: 0.25,
+      costSource: "providerReported",
+    });
   });
 
   it("prices unknown models offline and uses input prices for omitted cache rates", () => {
@@ -165,13 +186,11 @@ describe("usage pricing", () => {
     const table = withBuiltinRates(parseRateTable({}));
 
     // 1M tokens each at $0.10 in / $0.20 out / $0.002 cached / $0.10 creation.
-    const priced = priceUsage(table, "muse-spark-1.3-contributor", totals, null);
+    const priced = priceUsage(table, record("muse-spark-1.3-contributor"));
     expect(priced.costSource).toBe("modelPriced");
     expect(priced.costUsd).toBeCloseTo(0.1 + 0.002 + 0.1 + 0.2, 12);
-    expect(priceUsage(table, "muse-spark-1.2-contributor", totals, null)?.costSource).toBe(
-      "modelPriced",
-    );
-    expect(cacheSavingsUsd(table, "muse-spark-1.3-contributor", totals)).toBeCloseTo(
+    expect(priceUsage(table, record("muse-spark-1.2-contributor"))?.costSource).toBe("modelPriced");
+    expect(cacheSavingsUsd(table, record("muse-spark-1.3-contributor"))).toBeCloseTo(
       1_000_000 * ((0.1 - 0.002) / 1_000_000),
       12,
     );
@@ -197,7 +216,7 @@ describe("usage pricing", () => {
     );
 
     // Same 1M-token totals as the contributor test: $0.402, not $0.00.
-    const priced = priceUsage(table, "muse-spark-1.3-contributor-free", totals, null);
+    const priced = priceUsage(table, record("muse-spark-1.3-contributor-free"));
     expect(priced.costSource).toBe("modelPriced");
     expect(priced.costUsd).toBeCloseTo(0.1 + 0.002 + 0.1 + 0.2, 12);
   });
@@ -226,7 +245,7 @@ describe("usage pricing", () => {
     expect(lookupRate(table, "x-preview-f")).toEqual(lookupRate(table, "zai/glm-5.3-flash"));
     expect(lookupRate(table, "x-preview-f-free")).toEqual(lookupRate(table, "zai/glm-5.3-flash"));
 
-    const priced = priceUsage(table, "x-preview-f-free", totals, null);
+    const priced = priceUsage(table, record("x-preview-f-free"));
     expect(priced.costSource).toBe("modelPriced");
     // 1M tokens each at $0.15 in / $0.50 out / $0.03 cached / $0.15 creation.
     expect(priced.costUsd).toBeCloseTo(0.15 + 0.03 + 0.15 + 0.5, 12);

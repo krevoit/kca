@@ -12,6 +12,11 @@ export interface UsageRecord {
   readonly provider: UsageProviderKind;
   readonly timestampMs: number;
   readonly model: string;
+  /**
+   * Rate-table key when the provider's display name carries tiers the table
+   * does not know, such as Cursor's `claude-opus-5-5-high`. Defaults to `model`.
+   */
+  readonly rateModel?: string;
   readonly sessionId: string;
   readonly totals: UsageTokenTotals;
   readonly reportedCostUsd: number | null;
@@ -578,6 +583,7 @@ export function parseOpencodeMessage(input: OpencodeMessageInput): UsageRecord |
     // carries no information (free or subscription-routed usage), so those
     // rows fall back to rate-table pricing like any other model.
     reportedCostUsd: typeof cost === "number" && Number.isFinite(cost) && cost > 0 ? cost : null,
+    fast: false,
     // Message ids are globally unique; the key guards the cross-file pass.
     dedupeKey: `opencode:${input.id}`,
   };
