@@ -3678,9 +3678,8 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
     private: true,
     packageManager: rootPackageJson.packageManager,
     description: "T3 Code desktop build",
-    // Required by the .deb control file.
-    homepage: "https://t3.codes",
     author: "T3 Tools",
+    // Required by the .deb control file.
     homepage: "https://github.com/krevoit/kca",
     main: "apps/desktop/dist-electron/boot.cjs",
     build: yield* createBuildConfig(
