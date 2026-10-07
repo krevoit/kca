@@ -3,7 +3,11 @@ import {
   settlePromise,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
-import { THREAD_NOTE_MAX_LENGTH, type EnvironmentId, type ThreadId } from "@t3tools/contracts";
+import {
+  ORCHESTRATION_V2_THREAD_NOTE_MAX_LENGTH,
+  type EnvironmentId,
+  type ThreadId,
+} from "@t3tools/contracts";
 import { useCallback, useState } from "react";
 import { PencilIcon, StickyNoteIcon, Trash2Icon, XIcon } from "lucide-react";
 
@@ -87,7 +91,7 @@ export function ThreadNoteCard({
   }, [note, canEdit]);
 
   const saveNote = useCallback(async () => {
-    if (draft.length > THREAD_NOTE_MAX_LENGTH) return;
+    if (draft.length > ORCHESTRATION_V2_THREAD_NOTE_MAX_LENGTH) return;
     // Saving an emptied draft clears the note; explicit removal below confirms.
     const result = await updateThreadMetadata({
       environmentId,
@@ -173,7 +177,7 @@ export function ThreadNoteCard({
     );
   }
 
-  const tooLong = draft.length > THREAD_NOTE_MAX_LENGTH;
+  const tooLong = draft.length > ORCHESTRATION_V2_THREAD_NOTE_MAX_LENGTH;
 
   // The expanded card stays in the same bottom-left lane as the chip and
   // grows upward within the space reserved by the chat layout.
@@ -237,12 +241,14 @@ export function ThreadNoteCard({
             />
             {tooLong ? (
               <p role="status" className="pt-1 text-xs text-destructive">
-                Notes can contain up to {THREAD_NOTE_MAX_LENGTH.toLocaleString()} characters.
+                Notes can contain up to {ORCHESTRATION_V2_THREAD_NOTE_MAX_LENGTH.toLocaleString()}{" "}
+                characters.
               </p>
             ) : null}
             <div className="mt-1.5 flex flex-col items-stretch gap-2">
               <span className="text-xs text-muted-foreground tabular-nums">
-                {draft.length.toLocaleString()}/{THREAD_NOTE_MAX_LENGTH.toLocaleString()}
+                {draft.length.toLocaleString()}/
+                {ORCHESTRATION_V2_THREAD_NOTE_MAX_LENGTH.toLocaleString()}
               </span>
               <span className="flex justify-end gap-2">
                 <Button variant="outline" size="xs" onClick={cancelEditing}>

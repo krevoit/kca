@@ -46,5 +46,6 @@ export const updatePrimaryEnvironmentPreferences = createRuntimeCommand(connecti
     readonly target: CloudLinkTarget;
     readonly publishAgentActivity?: boolean;
     readonly tunnelTransport?: CloudTunnelTransport;
+    readonly holdWebhooksWhileOffline?: boolean;
   }) => updatePrimaryCloudPreferences(input),
 });

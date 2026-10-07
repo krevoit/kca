@@ -1,4 +1,4 @@
-import { HttpClient, HttpClientResponse } from "effect/unstable/http";
+import { HttpClient, HttpClientResponse } from "effect/http";
 import { describe, expect, it } from "@effect/vitest";
 import { vi } from "vite-plus/test";
 import * as Deferred from "effect/Deferred";
@@ -12,7 +12,7 @@ import * as Queue from "effect/Queue";
 import * as Sink from "effect/Sink";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import type { RelayManagedEndpointRuntimeConfig } from "@t3tools/contracts/relay";
 import * as RelayClient from "@t3tools/shared/relayClient";
 
@@ -20,7 +20,7 @@ import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as ManagedEndpointRuntime from "./ManagedEndpointRuntime.ts";
 import { CLOUD_TUNNEL_TRANSPORT } from "./config.ts";
 
-const relayClientAvailableLayer = Layer.succeed(
+const layerRelayClientAvailable = Layer.succeed(
   RelayClient.RelayClient,
   RelayClient.RelayClient.of({
     resolve: Effect.succeed({
@@ -41,7 +41,7 @@ interface RuntimeOptions {
 
 const runtimeDependencies = (
   spawner: ReturnType<typeof ChildProcessSpawner.make>,
-  relayClientLayer = relayClientAvailableLayer,
+  relayClientLayer = layerRelayClientAvailable,
   options: RuntimeOptions = {},
 ) =>
   Layer.mergeAll(
@@ -62,7 +62,7 @@ const runtimeDependencies = (
 
 const buildCloudManagedEndpointRuntime = (
   spawner: ReturnType<typeof ChildProcessSpawner.make>,
-  relayClientLayer = relayClientAvailableLayer,
+  relayClientLayer = layerRelayClientAvailable,
   options: RuntimeOptions = {},
 ) =>
   Effect.gen(function* () {
@@ -122,7 +122,7 @@ describe("CloudManagedEndpointRuntime", () => {
           }),
         ),
       );
-      const runtime = yield* buildCloudManagedEndpointRuntime(spawner, relayClientAvailableLayer, {
+      const runtime = yield* buildCloudManagedEndpointRuntime(spawner, layerRelayClientAvailable, {
         httpClient: HttpClient.make((request) =>
           Effect.sync(() => {
             expect(request.url).toBe("http://127.0.0.1:43210/ready");
@@ -167,7 +167,7 @@ describe("CloudManagedEndpointRuntime", () => {
         }),
       );
       const config = { providerKind: "cloudflare_tunnel" as const, connectorToken: "secret" };
-      const runtime = yield* buildCloudManagedEndpointRuntime(spawner, relayClientAvailableLayer, {
+      const runtime = yield* buildCloudManagedEndpointRuntime(spawner, layerRelayClientAvailable, {
         transport: () => transport,
       });
       yield* runtime.applyConfig(config);
@@ -310,6 +310,36 @@ describe("CloudManagedEndpointRuntime", () => {
       yield* runtime.requestRecovery(config);
 
       expect(Option.getOrNull(yield* Stream.runHead(runtime.recoveryRequests))).toEqual(config);
+    }),
+  );
+
+  it.effect("signals each registered tunnel connection", () =>
+    Effect.gen(function* () {
+      const output = yield* Queue.unbounded<Uint8Array>();
+      const spawner = ChildProcessSpawner.make(() =>
+        Effect.gen(function* () {
+          const handle = makeHandle({
+            pid: 700,
+            onKill: () => {},
+            output: Stream.fromQueue(output),
+          });
+          yield* Effect.addFinalizer(() => handle.kill().pipe(Effect.ignore));
+          return handle;
+        }),
+      );
+      const runtime = yield* buildCloudManagedEndpointRuntime(spawner);
+      yield* runtime.applyConfig({
+        providerKind: "cloudflare_tunnel",
+        connectorToken: "token",
+        tunnelId: "tunnel-1",
+      });
+      yield* Queue.offer(
+        output,
+        new TextEncoder().encode(
+          "2026-10-04T06:30:43Z INF Registered tunnel connection connIndex=0 event=0\n",
+        ),
+      );
+      expect(Option.isSome(yield* Stream.runHead(runtime.tunnelConnected))).toBe(true);
     }),
   );
 

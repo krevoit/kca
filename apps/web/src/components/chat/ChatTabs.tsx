@@ -50,8 +50,8 @@ function ChatTabItem({
   const close = useChatTabsStore((state) => state.close);
   const open = useChatTabsStore((state) => state.open);
   useEffect(() => {
-    if (tab.draftId && shell?.latestTurn) open({ ...tab, draftId: null });
-  }, [tab, shell?.latestTurn, open]);
+    if (tab.draftId && shell?.latestRun) open({ ...tab, draftId: null });
+  }, [tab, shell?.latestRun, open]);
   useEffect(() => {
     if (status === "deleted") close(chatTabKey(tab));
   }, [status, close, tab]);
@@ -59,8 +59,7 @@ function ChatTabItem({
     if (active) button.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [active]);
   const title = shell?.title ?? (tab.draftId ? "New chat" : "Chat");
-  const modelInstanceId =
-    shell?.session?.providerInstanceId ?? shell?.modelSelection.instanceId ?? null;
+  const modelInstanceId = shell?.providerInstanceId ?? shell?.modelSelection.instanceId ?? null;
   const providerEntry =
     modelInstanceId === null ? null : (providerEntryByInstanceId.get(modelInstanceId) ?? null);
   const driverKind = providerEntry?.driverKind ?? null;
@@ -121,7 +120,7 @@ function ChatTabItem({
                 }
               }}
             >
-              {shell?.latestTurn?.state === "running" ? (
+              {shell?.latestRun?.status === "running" ? (
                 <span
                   className="size-1.5 shrink-0 animate-pulse rounded-full bg-primary"
                   aria-label="Running"
@@ -132,7 +131,7 @@ function ChatTabItem({
                   driverKind={driverKind}
                   displayName={
                     providerEntry?.displayName ??
-                    shell?.session?.providerName ??
+                    shell?.runtime?.providerName ??
                     modelInstanceId ??
                     "Unknown provider"
                   }
