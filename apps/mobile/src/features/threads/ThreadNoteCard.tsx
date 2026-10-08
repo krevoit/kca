@@ -1,4 +1,8 @@
-import { THREAD_NOTE_MAX_LENGTH, type EnvironmentId, type ThreadId } from "@t3tools/contracts";
+import {
+  ORCHESTRATION_V2_THREAD_NOTE_MAX_LENGTH,
+  type EnvironmentId,
+  type ThreadId,
+} from "@t3tools/contracts";
 import { useCallback, useState } from "react";
 import { Alert, Pressable, TextInput, View } from "react-native";
 
@@ -39,7 +43,7 @@ export function ThreadNoteCard({
   }, [note]);
 
   const saveNote = useCallback(async () => {
-    if (draft.length > THREAD_NOTE_MAX_LENGTH) return;
+    if (draft.length > ORCHESTRATION_V2_THREAD_NOTE_MAX_LENGTH) return;
     const result = await updateThreadMetadata({
       environmentId,
       input: { threadId, note: draft.trim().length === 0 ? null : draft },
@@ -78,7 +82,7 @@ export function ThreadNoteCard({
   const showEmptyAffordance = note === null || note === undefined || note.length === 0;
   const hasNote = !showEmptyAffordance;
 
-  const tooLong = draft.length > THREAD_NOTE_MAX_LENGTH;
+  const tooLong = draft.length > ORCHESTRATION_V2_THREAD_NOTE_MAX_LENGTH;
 
   if (!expanded && !editing) {
     // Collapsed chip, mirroring web. Visible whenever there is something to
@@ -142,7 +146,7 @@ export function ThreadNoteCard({
             aria-label="Thread note"
             multiline
             numberOfLines={3}
-            maxLength={THREAD_NOTE_MAX_LENGTH + 100}
+            maxLength={ORCHESTRATION_V2_THREAD_NOTE_MAX_LENGTH + 100}
             placeholder="Jot down context for yourself…"
             className="mt-1.5 min-h-16 text-sm text-foreground"
             value={draft}
@@ -150,12 +154,14 @@ export function ThreadNoteCard({
           />
           {tooLong ? (
             <Text className="pt-1 text-xs text-destructive">
-              Notes can contain up to {THREAD_NOTE_MAX_LENGTH.toLocaleString()} characters.
+              Notes can contain up to {ORCHESTRATION_V2_THREAD_NOTE_MAX_LENGTH.toLocaleString()}{" "}
+              characters.
             </Text>
           ) : null}
           <View className="mt-1.5 flex-row items-center justify-between">
             <Text className="text-xs text-muted-foreground tabular-nums">
-              {draft.length.toLocaleString()}/{THREAD_NOTE_MAX_LENGTH.toLocaleString()}
+              {draft.length.toLocaleString()}/
+              {ORCHESTRATION_V2_THREAD_NOTE_MAX_LENGTH.toLocaleString()}
             </Text>
             <View className="flex-row items-center gap-3">
               <Pressable
