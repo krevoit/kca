@@ -104,6 +104,15 @@ update fails. Download the new `.deb` and install it the same way.
 macOS builds are signed and notarized, so in-place auto-update works.
 Windows is not shipped.
 
+### The `kca` command
+
+The desktop app includes the `kca` command-line tool. To run it from any
+terminal, open **Settings → General → About** and choose **Install** next to
+**kca command**. On macOS and Linux it adds a `kca` link to a folder on your
+`PATH`; on Windows it adds the app's command folder to your `PATH`. Open a new
+terminal afterwards. **Remove** takes it off again. If you already have `kca`
+from npm, it stays as it is.
+
 ### Open a project from a terminal
 
 With the desktop app already running on the same machine:
