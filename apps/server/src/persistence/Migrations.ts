@@ -73,8 +73,9 @@ import Migration0051PullRequests from "./Migrations/050_ProjectionThreadPullRequ
 // 053, fork 54; and so on). Upstream's AutoSettleDisabledAt (upstream id 54)
 // lands on 55 for the same reason, and upstream's OrchestrationV2 batch
 // (upstream ids 55-58) lands on 56-59. Upstream's McpAppModelContext
-// (upstream id 59) lands on 60. The shifted migrations live in their
-// upstream 055_-059_ files because only Migrations.ts is being merged here.
+// (upstream id 59) lands on 60, and upstream's ThreadSnapshotWindowIndexes
+// (upstream id 60) lands on 61. The shifted migrations live in their
+// upstream 055_-060_ files because only Migrations.ts is being merged here.
 import Migration0052MessageContext from "./Migrations/051_ProjectionThreadMessageContext.ts";
 import Migration0053TitleState from "./Migrations/052_ProjectionThreadTitleState.ts";
 import Migration0054PullRequestFilesViewed from "./Migrations/053_PullRequestFilesViewed.ts";
@@ -84,6 +85,7 @@ import Migration0057RemoveRedundantProjectionIndexes from "./Migrations/056_Remo
 import Migration0058ScheduledTaskWebhooks from "./Migrations/057_ScheduledTaskWebhooks.ts";
 import Migration0059WebhookRelayDeliveries from "./Migrations/058_WebhookRelayDeliveries.ts";
 import Migration0060McpAppModelContext from "./Migrations/059_McpAppModelContext.ts";
+import Migration0061ThreadSnapshotWindowIndexes from "./Migrations/060_ThreadSnapshotWindowIndexes.ts";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -158,6 +160,7 @@ export const migrationEntries = [
   [58, "ScheduledTaskWebhooks", Migration0058ScheduledTaskWebhooks],
   [59, "WebhookRelayDeliveries", Migration0059WebhookRelayDeliveries],
   [60, "McpAppModelContext", Migration0060McpAppModelContext],
+  [61, "ThreadSnapshotWindowIndexes", Migration0061ThreadSnapshotWindowIndexes],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

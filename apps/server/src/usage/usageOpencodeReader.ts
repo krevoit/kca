@@ -21,7 +21,7 @@ import * as NodeModule from "node:module";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 
-import { expandHomePath } from "../pathExpansion.ts";
+import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
 
 import { parseOpencodeMessage, type UsageRecord } from "./usageTranscripts.ts";
 
