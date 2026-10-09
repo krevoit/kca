@@ -16,6 +16,11 @@ import {
   resolveWebIconOverrides,
 } from "../../../scripts/lib/brand-assets.ts";
 import { resolveCatalogDependencies } from "../../../scripts/lib/resolve-catalog.ts";
+// KCA fork: the published kca-code ships a bundled dist, so only the
+// runtime-external roots (native modules, disk-backed SDKs) belong in the
+// published manifest. Workspace sources are inlined by the bundler and must
+// not leak in as workspace:* specs pnpm cannot resolve at publish time.
+import { selectCliRuntimeExternalDependencies } from "../../../scripts/lib/cli-external-packages.ts";
 import { fromJsonStringPretty } from "@t3tools/shared/schemaJson";
 import { fromYaml } from "@t3tools/shared/schemaYaml";
 import { findEsmImportsOfExternalPackages } from "../../../scripts/lib/cli-executable-imports.ts";
@@ -310,10 +315,12 @@ const publishCmd = Command.make(
             version,
             engines: serverPackageJson.engines,
             files: serverPackageJson.files,
-            dependencies: resolveCatalogDependencies(
-              serverPackageJson.dependencies,
-              workspaceCatalog,
-              "apps/server",
+            dependencies: selectCliRuntimeExternalDependencies(
+              resolveCatalogDependencies(
+                serverPackageJson.dependencies,
+                workspaceCatalog,
+                "apps/server",
+              ),
             ),
             overrides: resolveCatalogDependencies(
               workspaceOverrides,
