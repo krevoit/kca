@@ -1,22 +1,17 @@
 import type { ServerSelfUpdateOutcome } from "@t3tools/contracts";
 
-// Protocol 3 requires the standalone executable layout. Bump when runtimePaths
-// or the installed runtime tree changes incompatibly; launchers survive self-updates.
+// Bump for incompatible runtime layout changes; launchers survive self-updates. Protocol 3 requires standalone executables.
 export const SERVICE_LAUNCHER_PROTOCOL = 3 as const;
 export const SERVICE_LAUNCHER_CONTEXT_ENV = "T3_SERVICE_LAUNCHER_CONTEXT";
 // KCA fork: the standalone launcher bundle published as dist/service-launcher.mjs
 // in kca-code. The boot service copies it to a stable path so the unit never
 // points at a versioned install that self-update may replace.
 export const SERVICE_LAUNCHER_FILE = "service-launcher.mjs";
+export const SERVICE_ENV_FILE = "service.env";
 export const SERVICE_STATE_FILE = "service-state.json";
-/** Written by the launcher just before an explicit stop kills its child, so
-    the child can tell "the service is going away" from "the launcher is about
-    to start my replacement" while a pending update is recorded. */
+/** Written before explicit stop to distinguish shutdown from update handoff. */
 export const SERVICE_STOP_MARKER_FILE = ".service-stopping";
-/** Written by `t3 update` when the unit was repointed at a new version but the
-    running service was deliberately left on the old one. The launcher removes
-    it when it starts (whoever restarted the service), so while it exists the
-    service is known to be behind its unit and status reports it that way. */
+/** Marks a repointed unit whose service still runs the old version; launcher startup clears it. */
 export const SERVICE_RESTART_PENDING_FILE = ".restart-pending";
 
 export interface PendingServiceUpdate {
@@ -35,7 +30,6 @@ export interface ServiceState {
   readonly update?: ServiceUpdateRecord;
 }
 
-/** Context is copied from launcher-owned state when a child is spawned. */
 export interface ServiceLauncherContext {
   readonly protocol: typeof SERVICE_LAUNCHER_PROTOCOL;
   readonly childVersion: string;
@@ -73,7 +67,6 @@ const EXACT_SERVICE_VERSION = new RegExp(
   `^${SEMVER_NUMBER}\\.${SEMVER_NUMBER}\\.${SEMVER_NUMBER}(?:-${SEMVER_PRERELEASE}(?:\\.${SEMVER_PRERELEASE})*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$`,
 );
 
-/** Accepts exact SemVer only: never dist-tags or ranges passed to npm or filesystem paths. */
 export const isExactServiceVersion = (version: string): boolean =>
   EXACT_SERVICE_VERSION.test(version);
 
@@ -113,7 +106,6 @@ function decodeServiceUpdate(value: unknown): ServiceUpdateRecord | undefined {
   return undefined;
 }
 
-/** SemVer precedence for exact versions. Build metadata is ignored. */
 export function compareExactServiceVersions(left: string, right: string): number {
   const parse = (version: string) => {
     const withoutBuild = version.split("+", 1)[0] ?? version;
@@ -183,7 +175,6 @@ export function parseServiceState(value: string): ServiceState | undefined {
   }
 }
 
-/** Detects an in-flight update across launcher protocol versions before replacing its state. */
 export function serviceStateHasPendingUpdate(value: string): boolean {
   try {
     const parsed: unknown = JSON.parse(value);
@@ -193,7 +184,6 @@ export function serviceStateHasPendingUpdate(value: string): boolean {
   }
 }
 
-/** Reads the active version across launcher protocol revisions for downgrade protection. */
 export function serviceStateActiveVersion(value: string): string | undefined {
   try {
     const parsed: unknown = JSON.parse(value);

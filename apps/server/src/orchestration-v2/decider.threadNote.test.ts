@@ -15,14 +15,11 @@ import { CodexProviderCapabilitiesV2 } from "./Adapters/CodexAdapterV2.ts";
 import type * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
 import * as CommandReceiptStore from "./CommandReceiptStore.ts";
 import * as ProviderAdapterRegistry from "./ProviderAdapterRegistry.ts";
+import * as ProjectionStore from "./ProjectionStore.ts";
 import * as ThreadManagement from "./ThreadManagementService.ts";
 import * as ProviderReplayHarness from "./testkit/ProviderReplayHarness.ts";
 
 // KCA fork sticky-note behavior, ported from the deleted V1
-// `thread.meta.update` decider to the V2 `thread.metadata.update` path.
-// Requires `note` support in the V2 contracts (`thread.metadata.update` /
-// `thread.metadata-updated` / thread shell), the Orchestrator decision fold,
-// and the projection store; those land with the corresponding merges.
 const projectId = ProjectId.make("project:thread-note");
 const modelSelection = {
   instanceId: ProviderInstanceId.make("codex"),
@@ -47,7 +44,11 @@ function makeHarness() {
   );
   const layerThreadManagement = ThreadManagement.layer.pipe(Layer.provide(layerOrchestrator));
   return {
-    layer: Layer.mergeAll(layerThreadManagement, layerDatabase).pipe(
+    layer: Layer.mergeAll(
+      layerThreadManagement,
+      layerDatabase,
+      ProjectionStore.layer.pipe(Layer.provide(layerDatabase)),
+    ).pipe(
       Layer.provideMerge(ServerSettings.layerTest()),
       Layer.provideMerge(CommandReceiptStore.layer.pipe(Layer.provide(layerDatabase))),
     ),
@@ -99,6 +100,8 @@ describe("thread sticky notes", () => {
         note: "ship it",
       });
       assert.equal(yield* readNote(threadId), "ship it");
+      const store = yield* ProjectionStore.ProjectionStoreV2;
+      assert.equal((yield* store.getThreadShell(threadId))?.note, "ship it");
     }).pipe(Effect.provide(makeHarness().layer)),
   );
 

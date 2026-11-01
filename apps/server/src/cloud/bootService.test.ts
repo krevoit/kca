@@ -181,18 +181,17 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
         yield* fs.writeFileString(statePath, control.stateAfterStop).pipe(Effect.orDie);
       }
       return {
-        stdout:
-          input.args[0] === "--version"
-            ? // The runtime under test reports the version of the directory it
-              // was launched from, like the real CLI.
-              `kca v${/versions\/([^/]+)\//.exec(input.command)?.[1] ?? "1.2.3"}\n`
-            : input.command === "loginctl" && input.args[0] === "show-user"
-              ? `${control.linger}\n`
-              : input.args[1] === "is-enabled"
-                ? control.enabled
-                  ? "enabled\n"
-                  : "disabled\n"
-                : "",
+        stdout: input.args.includes("--version")
+          ? // The runtime under test reports the version of the directory it
+            // was launched from, like the real CLI.
+            `kca v${/versions\/([^/]+)\//.exec(input.args[0] ?? input.command)?.[1] ?? "1.2.3"}\n`
+          : input.command === "loginctl" && input.args[0] === "show-user"
+            ? `${control.linger}\n`
+            : input.args[1] === "is-enabled"
+              ? control.enabled
+                ? "enabled\n"
+                : "disabled\n"
+              : "",
         stderr: "",
         code: ChildProcessSpawner.ExitCode(
           failed || (input.args[1] === "is-active" && !control.active) ? 1 : 0,
@@ -523,7 +522,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
       expect(status.problems).toContain("restart-pending");
 
       commands.length = 0;
-      expect(yield* newer.restart).toBe(true);
+      expect(yield* newer.restart).toBe("restarted");
       expect((yield* newer.status).problems).not.toContain("restart-pending");
       expect((yield* newer.status).current).toBe(true);
     }),
@@ -576,11 +575,11 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
   it.effect("restart stops and starts an installed service, and is a no-op otherwise", () =>
     Effect.gen(function* () {
       const { service, commands } = yield* makeHarness();
-      expect(yield* service.restart).toBe(false);
+      expect(yield* service.restart).toBe("skipped");
       yield* service.install();
       commands.length = 0;
 
-      expect(yield* service.restart).toBe(true);
+      expect(yield* service.restart).toBe("restarted");
       expect(
         commands.filter(
           (command) => command.startsWith("systemctl ") && !command.includes("show-environment"),
@@ -603,7 +602,7 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
       const otherHome = yield* fs.makeTempDirectoryScoped({ prefix: "t3-other-home-" });
 
       const other = yield* makeService(undefined, "1.2.3", path.join(otherHome, ".t3"));
-      expect(yield* other.restart).toBe(false);
+      expect(yield* other.restart).toBe("skipped");
       expect(commands.filter((command) => command.startsWith("systemctl "))).toEqual([]);
     }),
   );

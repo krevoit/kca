@@ -14,7 +14,6 @@ import {
   pinnedRuntimeCommand,
   pinnedRuntimePaths,
   PinnedRuntimeInstallError,
-  type PinnedRuntimeProgress,
 } from "./pinnedRuntime.ts";
 
 // Every install fetches the release archive, checks it against SHA256SUMS,
@@ -88,7 +87,10 @@ it.layer(NodeServices.layer)("ensurePinnedRuntimeInstalled", (it) => {
         paths.entryPath,
         path.join(paths.versionDir, "node_modules", "kca-code", "dist", "bin.mjs"),
       );
-      assert.deepEqual(pinnedRuntimeCommand(paths), { command: paths.entryPath, args: [] });
+      assert.deepEqual(pinnedRuntimeCommand(paths), {
+        command: process.execPath,
+        args: [paths.entryPath],
+      });
       assert.deepEqual(commands, ["npm"]);
       assert.equal(yield* fs.readFileString(paths.sentinelPath), `${version}\n`);
     }),

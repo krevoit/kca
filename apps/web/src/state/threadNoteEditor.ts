@@ -1,13 +1,6 @@
 import { create } from "zustand";
 
-/**
- * Which thread's sticky-note editor is open, as a scoped thread key, or null.
- *
- * Thread action menus (sidebar rows, chat header) live outside the thread
- * view that hosts the editor, so the request travels through this ephemeral
- * store instead of props. Deliberately not persisted: an in-progress edit is
- * dropped on reload like the inline rename draft.
- */
+// Which thread's sticky-note editor is open, as a scoped thread key, or null.
 interface ThreadNoteEditorState {
   readonly noteEditorThreadKey: string | null;
   readonly openNoteEditor: (threadKey: string) => void;

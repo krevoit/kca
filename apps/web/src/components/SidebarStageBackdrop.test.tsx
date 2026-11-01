@@ -4,14 +4,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   resolveEnvironmentIdentificationPillLabel,
   resolveSidebarStageBackdropVariant,
-  StageBackdropArt,
+  SidebarStageBackdrop,
 } from "./SidebarStageBackdrop";
 
 describe("SidebarStageBackdrop", () => {
   it("resolves stage artwork only when enabled", () => {
     expect(resolveSidebarStageBackdropVariant("Dev")).toBe("dev");
     expect(resolveSidebarStageBackdropVariant("Nightly")).toBe("nightly");
-    expect(resolveSidebarStageBackdropVariant("Dev", false)).toBeNull();
+    expect(resolveSidebarStageBackdropVariant("Dev", "none")).toBeNull();
     // KCA fork default: starry nightly art shows on every channel.
     expect(resolveSidebarStageBackdropVariant("Alpha")).toBe("nightly");
     expect(resolveSidebarStageBackdropVariant("Latest")).toBe("nightly");
@@ -29,8 +29,8 @@ describe("SidebarStageBackdrop", () => {
     (variant) => {
       const markup = renderToStaticMarkup(
         <>
-          <StageBackdropArt variant={variant} />
-          <StageBackdropArt variant={variant} />
+          <SidebarStageBackdrop variant={variant} />
+          <SidebarStageBackdrop variant={variant} />
         </>,
       );
       const ids = Array.from(markup.matchAll(/\sid="([^"]+)"/g), (match) => match[1]);

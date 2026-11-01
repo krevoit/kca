@@ -54,13 +54,15 @@ afterwards, that directory is not on your `PATH` yet; the installer prints the
 line to add. Set `T3CODE_CHANNEL=nightly` to install the nightly train, or
 `T3CODE_VERSION` to pin an exact version.
 
-| Task                                             | Command                                                   |
-| ------------------------------------------------ | --------------------------------------------------------- |
-| Start the server and open the web app            | `t3`                                                      |
-| Start the server without a browser               | `t3 serve`                                                |
-| Keep it running in the background (macOS, Linux) | `t3 service install` ([details](./background-service.md)) |
-| Move to the newest release                       | `t3 update`                                               |
-| Remove it again                                  | `t3 uninstall`                                            |
+| Task                                             | Command                                                                 |
+| ------------------------------------------------ | ----------------------------------------------------------------------- |
+| Start the server and open the web app            | `t3`                                                                    |
+| Start the server without a browser               | `t3 serve`                                                              |
+| Use it from your other devices                   | `t3 up` ([details](./remote-access.md))                                 |
+| Keep it running in the background (macOS, Linux) | `t3 service install` ([details](./background-service.md))               |
+| Move to the newest release                       | `t3 update`                                                             |
+| Reclaim database space                           | `t3 doctor` ([details](./background-service.md#reclaim-database-space)) |
+| Remove it again                                  | `t3 uninstall`                                                          |
 
 Run `t3 help` or `t3 --help` for the full reference. To start in a new working
 directory, use an explicit path such as `t3 ./my-project`. A bare directory name
@@ -76,7 +78,7 @@ Node.js for `npx`).
 ### Intel Macs
 
 There is no `t3` executable for Intel Macs (the desktop app is available). To
-run a server there, build it from source with Node.js 24 and `vp`
+run a server there, build it from source with `vp`, which provides the Node version it needs
 ([Install vp](https://github.com/pingdotgg/t3code#install-vp)):
 
 ```bash
@@ -113,6 +115,13 @@ terminal, open **Settings → General → About** and choose **Install** next to
 terminal afterwards. **Remove** takes it off again. If you already have `kca`
 from npm, it stays as it is.
 
+### Windows Subsystem for Linux
+
+Choose a WSL distro in **Settings → Sharing & access** to run agents and projects
+there. Install the provider CLIs inside that distro. T3 Code installs its own
+server runtime there automatically; the first launch after an app update can
+take longer.
+
 ### Open a project from a terminal
 
 With the desktop app already running on the same machine:
@@ -134,13 +143,12 @@ No KCA mobile build is published. The upstream T3 Code app from the
 works as a client: the phone connects to a KCA server on another machine. Follow
 [remote access](./remote-access.md) to link it through T3 Connect or a pairing URL.
 
-Nightly builds need the beta app. The store apps cannot connect to them. A Nightly build also
-shows these links as QR codes in **Settings → General → Mobile app**.
+Store links and QR codes are also available in **Settings → About → Mobile app**
+on web and desktop. The store apps work with both stable and Nightly servers. Test builds are optional:
 
-- **iPhone and iPad:** join the [TestFlight beta](https://testflight.apple.com/join/XgaxaRtd).
-- **Android:** join the [beta group](https://groups.google.com/g/t3-code-v2-beta). With the same
-  Google account, open the [Google Play testing page](https://play.google.com/apps/testing/com.t3tools.t3code)
-  and become a tester.
+- **iPhone and iPad:** TestFlight is invite-only.
+- **Android:** download an APK from the
+  [Android beta releases](https://github.com/pingdotgg/t3code/releases?q=android-beta-).
 
 If the app crashes during launch, open Settings → Diagnostics on the next launch
 that succeeds. It lists startup crashes from the last 7 days with the error and
@@ -165,6 +173,7 @@ computer.
 | Antigravity | Install and sign in with Google from KCA's provider settings.                                                                                             |
 | Pi          | Install [Pi](./providers-pi.md#set-up-pi) with Node.js 22.19 or newer, then run `pi` and `/login`.                                                        |
 | Muse Code   | Install [Muse Code](https://dev.meta.ai/docs/muse-code) on the server, run `muse login`, then enable it in Settings → Providers.                          |
+| fx          | Install [fx](https://fx.sh) with `curl -fsSL https://fx.sh/setup.sh \| bash`, then run `fx login`.                                                        |
 
 Provider CLIs must be on the server's `PATH`. If KCA cannot find one, set its
 **Binary path** in provider settings, especially when using a version manager.
@@ -193,8 +202,8 @@ their original values.
 
 For provider-specific setup and accounts, see [Codex](./providers-codex.md),
 [Claude](./providers-claude.md), [OpenCode](./providers-opencode.md),
-[Antigravity](./providers-antigravity.md), [Pi](./providers-pi.md), and
-[Muse Code](./providers-muse.md).
+[Antigravity](./providers-antigravity.md), [Pi](./providers-pi.md),
+[Muse Code](./providers-muse.md), and [fx](./providers-fx.md).
 
 ## Next steps
 

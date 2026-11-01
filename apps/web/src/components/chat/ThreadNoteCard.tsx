@@ -8,7 +8,7 @@ import {
   type EnvironmentId,
   type ThreadId,
 } from "@t3tools/contracts";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { PencilIcon, StickyNoteIcon, Trash2Icon, XIcon } from "lucide-react";
 
 import { readLocalApi } from "../../localApi";
@@ -19,14 +19,7 @@ import { hasThreadNote } from "../threadActionMenu.logic";
 import { Button } from "../ui/button";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 
-/**
- * Sticky user note kept in the thread's bottom-left corner.
- *
- * Collapsed to a chip by default; expands to view or edit. View-only by
- * construction: the note lives on thread metadata and no agent path reads
- * it. Editing opens from the chip, the expanded card, or the thread action
- * menu (sidebar rows and chat header) through the note-editor store.
- */
+// Sticky user note kept in the thread's bottom-left corner.
 export function ThreadNoteCard({
   environmentId,
   threadId,
@@ -61,12 +54,12 @@ export function ThreadNoteCard({
     reportFailure: false,
   });
 
-  const startEditing = useCallback(() => {
+  const startEditing = () => {
     setDraft(note ?? "");
     setEditing(true);
-  }, [note]);
+  };
 
-  const cancelEditing = useCallback(() => {
+  const cancelEditing = () => {
     closeNoteEditor();
     if (hasThreadNote(note)) {
       setEditing(false);
@@ -74,23 +67,23 @@ export function ThreadNoteCard({
       setEditing(false);
       setExpanded(false);
     }
-  }, [note]);
+  };
 
-  const closeWidget = useCallback(() => {
+  const closeWidget = () => {
     setExpanded(false);
     setEditing(false);
     closeNoteEditor();
-  }, []);
+  };
 
-  const openWidget = useCallback(() => {
+  const openWidget = () => {
     setExpanded(true);
     if (!hasThreadNote(note) && canEdit) {
       setDraft(note ?? "");
       setEditing(true);
     }
-  }, [note, canEdit]);
+  };
 
-  const saveNote = useCallback(async () => {
+  const saveNote = async () => {
     if (draft.length > ORCHESTRATION_V2_THREAD_NOTE_MAX_LENGTH) return;
     // Saving an emptied draft clears the note; explicit removal below confirms.
     const result = await updateThreadMetadata({
@@ -112,9 +105,9 @@ export function ThreadNoteCard({
     }
     setEditing(false);
     closeNoteEditor();
-  }, [draft, environmentId, threadId, updateThreadMetadata]);
+  };
 
-  const removeNote = useCallback(async () => {
+  const removeNote = async () => {
     const api = readLocalApi();
     if (api) {
       const confirmed = await settlePromise(() =>
@@ -145,7 +138,7 @@ export function ThreadNoteCard({
     toastManager.add(
       stackedThreadToast({ type: "success", title: "Note removed", timeout: 3_000 }),
     );
-  }, [environmentId, threadId, updateThreadMetadata]);
+  };
 
   if (!expanded && !editorRequested) {
     // Collapsed chip. Visible whenever there is something to open: an

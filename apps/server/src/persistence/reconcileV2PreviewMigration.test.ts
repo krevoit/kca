@@ -10,7 +10,6 @@ import TitleState from "./Migrations/052_ProjectionThreadTitleState.ts";
 import RemoveRedundantProjectionIndexes from "./Migrations/056_RemoveRedundantProjectionIndexes.ts";
 import OrchestrationV2 from "./Migrations/055_OrchestrationV2.ts";
 
-// The V2 schema is unchanged from the published September 15–16 previews.
 const seedPreview = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
   yield* runMigrations({ toMigrationInclusive: 52 });
@@ -44,6 +43,20 @@ describe("V2 preview upgrade", () => {
         [61, "ThreadSnapshotWindowIndexes"],
         [62, "PullRequestReviewGuides"],
         [63, "ThreadFailureLookupIndex"],
+        [64, "DropUnusedV1Projections"],
+        [65, "CanonicalizeThreadPullRequestLinks"],
+        [66, "CodexUsageNativeTurnIndex"],
+        [67, "RepairClientSettlementTimestamps"],
+        [68, "WebhookDedupe"],
+        [69, "ShellStopRequestIndex"],
+        [70, "ThreadMessageSearch"],
+        [71, "PeerLinks"],
+        [72, "PeerLinkFence"],
+        [73, "WaitingLinkRequestIndex"],
+        [74, "ActiveTurnItemIndexes"],
+        [75, "ExcludeAttachmentPlaceholdersFromSearch"],
+        [76, "SubagentDeliveryState"],
+        [77, "ProjectionProjectsPinArchive"],
       ]);
       assert.deepStrictEqual(yield* runMigrations(), []);
       assert.deepStrictEqual(yield* sql`SELECT * FROM orchestration_v2_legacy_imports`, imports);
@@ -130,6 +143,20 @@ describe("V2 preview upgrade", () => {
         [61, "ThreadSnapshotWindowIndexes"],
         [62, "PullRequestReviewGuides"],
         [63, "ThreadFailureLookupIndex"],
+        [64, "DropUnusedV1Projections"],
+        [65, "CanonicalizeThreadPullRequestLinks"],
+        [66, "CodexUsageNativeTurnIndex"],
+        [67, "RepairClientSettlementTimestamps"],
+        [68, "WebhookDedupe"],
+        [69, "ShellStopRequestIndex"],
+        [70, "ThreadMessageSearch"],
+        [71, "PeerLinks"],
+        [72, "PeerLinkFence"],
+        [73, "WaitingLinkRequestIndex"],
+        [74, "ActiveTurnItemIndexes"],
+        [75, "ExcludeAttachmentPlaceholdersFromSearch"],
+        [76, "SubagentDeliveryState"],
+        [77, "ProjectionProjectsPinArchive"],
       ]);
     }).pipe(Effect.provide(NodeSqliteClient.layer({ filename: ":memory:" }))),
   );

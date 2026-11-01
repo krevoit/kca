@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useClientSettings, useUpdateClientSettings } from "../../hooks/useSettings";
+import { useClientSettings, updateClientSettings } from "../../hooks/useSettings";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
 import { SettingsRow, SettingsSection } from "./settingsLayout";
@@ -29,7 +29,7 @@ async function readBackground(file: File): Promise<string> {
 
 export function ChatAppearanceSettings() {
   const settings = useClientSettings();
-  const update = useUpdateClientSettings();
+  const update = updateClientSettings;
   const input = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

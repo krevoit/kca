@@ -8,21 +8,7 @@ import { ProjectFavicon } from "../ProjectFavicon";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import type { SidebarSection } from "../Sidebar.logic";
 
-/**
- * The sidebar's projects pane: a compact selectable project list beside the
- * threads pane. One small tile per project — logo on top, directory name
- * below it — plus an "All" tile that clears the scope. Selecting a project
- * scopes the threads pane to that project (the `sidebarProjectScopeKey` in
- * the persisted UI store, shared by both sidebars). Clicking the selected
- * project again also clears it, so there is always a way out without
- * hunting for the All tile.
- *
- * Thread density (comfortable/compact) lives in Settings, not here. Both
- * sidebars read the same `sidebarThreadDensity` value: the flat thread
- * sidebar renders live threads as full cards when comfortable and slim rows
- * when compact, while the grouped project tree shows thread status pills
- * when comfortable and hides them when compact.
- */
+// The sidebar's projects pane: a compact selectable project list beside the
 
 export function resolveSidebarRowVariant(
   section: SidebarSection,
@@ -42,7 +28,7 @@ export interface SidebarProjectPickerProps {
 }
 
 const pickerTileClassName =
-  "flex w-full cursor-pointer flex-col items-center gap-0.5 rounded-md px-0.5 py-1.5 text-center outline-none select-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-ring";
+  "flex w-full cursor-pointer flex-col items-center gap-0.5 rounded-md px-0.5 py-1.5 text-center outline-none select-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
 
 export const SidebarProjectPicker = memo(function SidebarProjectPicker(
   props: SidebarProjectPickerProps,

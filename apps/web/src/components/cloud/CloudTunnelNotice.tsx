@@ -10,7 +10,7 @@ export function CloudTunnelNotice() {
       className="mx-2 my-1 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs"
     >
       T3 Connect’s tunnel is unavailable. Other devices may not be able to connect.{" "}
-      <Link to="/settings/connections" className="underline">
+      <Link to="/settings/access" className="underline">
         Check connection settings
       </Link>
     </div>

@@ -1,7 +1,7 @@
 import { Tooltip, TooltipTrigger, TooltipPopup } from "../ui/tooltip";
 import { useEnvironment } from "../../state/environments";
 import { useAtomValue } from "@effect/atom-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { PlusIcon, XIcon } from "lucide-react";
 import { shouldShowInstanceBadge } from "@t3tools/client-runtime/state/provider-instance-display";
@@ -18,7 +18,7 @@ import {
 } from "../../providerInstances";
 import { cn } from "~/lib/utils";
 import { ProviderInstanceIcon } from "./ProviderInstanceIcon";
-import { getTriggerDisplayModelLabel } from "./providerIconUtils";
+import { getTriggerDisplayModelName } from "./providerIconUtils";
 
 const EMPTY_PROVIDER_ENTRIES: ReadonlyMap<string, ProviderInstanceEntry> = new Map();
 
@@ -49,12 +49,15 @@ function ChatTabItem({
   const button = useRef<HTMLButtonElement>(null);
   const close = useChatTabsStore((state) => state.close);
   const open = useChatTabsStore((state) => state.open);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- syncs the persisted tab with the promoted server thread
   useEffect(() => {
     if (tab.draftId && shell?.latestRun) open({ ...tab, draftId: null });
   }, [tab, shell?.latestRun, open]);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- removes a deleted thread from the persisted tab store
   useEffect(() => {
     if (status === "deleted") close(chatTabKey(tab));
   }, [status, close, tab]);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- keeps the active tab visible in its scroll container
   useEffect(() => {
     if (active) button.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [active]);
@@ -67,7 +70,7 @@ function ChatTabItem({
     (model) => model.slug === shell?.modelSelection.model,
   );
   const modelLabel = selectedModel
-    ? getTriggerDisplayModelLabel(selectedModel)
+    ? getTriggerDisplayModelName(selectedModel, driverKind)
     : (shell?.modelSelection.model ?? null);
   const tooltip = `${title}${modelLabel ? ` · ${modelLabel}` : ""} · ${environment?.label ?? "Disconnected environment"}`;
   const tabKey = chatTabKey(tab);
@@ -174,19 +177,16 @@ export function ChatTabs() {
   const draft = useComposerDraftStore((state) => (draftId ? state.getDraftSession(draftId) : null));
   const draftEnvironmentId = draft?.environmentId;
   const draftThreadId = draft?.threadId;
-  const current = useMemo<ChatTab | null>(
-    () =>
-      params.environmentId && params.threadId
-        ? {
-            environmentId: EnvironmentId.make(params.environmentId),
-            threadId: ThreadId.make(params.threadId),
-            draftId: null,
-          }
-        : draftEnvironmentId && draftThreadId && draftId
-          ? { environmentId: draftEnvironmentId, threadId: draftThreadId, draftId }
-          : null,
-    [params.environmentId, params.threadId, draftEnvironmentId, draftThreadId, draftId],
-  );
+  const current: ChatTab | null =
+    params.environmentId && params.threadId
+      ? {
+          environmentId: EnvironmentId.make(params.environmentId),
+          threadId: ThreadId.make(params.threadId),
+          draftId: null,
+        }
+      : draftEnvironmentId && draftThreadId && draftId
+        ? { environmentId: draftEnvironmentId, threadId: draftThreadId, draftId }
+        : null;
   const tabs = useChatTabsStore((state) => state.tabs);
   const open = useChatTabsStore((state) => state.open);
   const close = useChatTabsStore((state) => state.close);
@@ -196,16 +196,11 @@ export function ChatTabs() {
   const serverConfigs = useAtomValue(environmentServerConfigsAtom);
   // Same per-environment provider lookup the sidebar rows use: default
   // instance ids are driver slugs, so resolution must stay scoped per env.
-  const providerEntriesByEnvironment = useMemo(
-    () =>
-      deriveProviderEntriesByEnvironment(
-        [...serverConfigs].map(
-          ([environmentId, config]) => [environmentId, config.providers] as const,
-        ),
-      ),
-    [serverConfigs],
+  const providerEntriesByEnvironment = deriveProviderEntriesByEnvironment(
+    [...serverConfigs].map(([environmentId, config]) => [environmentId, config.providers] as const),
   );
   const key = current ? chatTabKey(current) : null;
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- syncs route navigation with the persisted tab store
   useEffect(() => {
     if (enabled && current) open(current);
   }, [enabled, current, open]);

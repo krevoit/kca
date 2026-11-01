@@ -6,7 +6,7 @@ import {
 import { useCallback, useState } from "react";
 import { Alert, Pressable, TextInput, View } from "react-native";
 
-import { AppText as Text } from "../../components/AppText";
+import { AppText as Text } from "../../components/ui/AppText";
 import { cn } from "../../lib/cn";
 import { threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";

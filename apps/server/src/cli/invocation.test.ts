@@ -162,9 +162,9 @@ it.layer(NodeServices.layer)("root CLI commands", (it) => {
       };
       // The desktop app's shim, quoted for the shell and run as root as is.
       expect(yield* rootCommand(desktop)).toBe(`sudo '${shim}' browser setup`);
-      // A `kca` the person put on PATH still wins.
+      // A different executable on PATH must not replace this install's shim.
       expect(yield* rootCommand({ ...desktop, path: yield* pathWithKca })).toBe(
-        'sudo env "PATH=$PATH" kca browser setup',
+        `sudo '${shim}' browser setup`,
       );
       // A standalone binary names itself.
       expect(
