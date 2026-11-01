@@ -16,6 +16,7 @@ import { compareExactServiceVersions, SERVICE_ENV_FILE } from "../cloud/serviceP
 import * as ServerConfig from "../config.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import { projectLocationFlags, resolveCliAuthConfig } from "./config.ts";
+import { resolveEntryPath } from "./invocation.ts";
 
 export const layer = (config: ServerConfig.ServerConfig["Service"]) =>
   BootService.layer({
@@ -211,7 +212,7 @@ const serviceInstallCommand = Command.make("install", serviceReconcileFlags).pip
         const result = yield* reconcileService({ allowDowngrade: flags.allowDowngrade });
         if (!result.changed) {
           yield* Console.log(
-            `KCA service is already installed with kca-code@${packageJson.version}.`,
+            `KCA service is already installed with kca-code@${packageJson.version} (${yield* resolveEntryPath}).`,
           );
           return;
         }
@@ -235,7 +236,9 @@ const serviceUpdateCommand = Command.make("update", serviceReconcileFlags).pipe(
       Effect.gen(function* () {
         const result = yield* reconcileService({ allowDowngrade: flags.allowDowngrade });
         if (!result.changed) {
-          yield* Console.log(`KCA service is already using kca-code@${packageJson.version}.`);
+          yield* Console.log(
+            `KCA service is already using kca-code@${packageJson.version} (${yield* resolveEntryPath}).`,
+          );
           return;
         }
         yield* Console.log(

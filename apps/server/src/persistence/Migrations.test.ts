@@ -9,7 +9,7 @@ import * as SqlClient from "effect/sql/SqlClient";
 
 import { migrationManifest, runMigrations } from "./Migrations.ts";
 
-const v2Migrations = migrationManifest.filter(([id]) => id >= 55);
+const v2Migrations = migrationManifest.filter(([id]) => id >= 56);
 const newerMigrationId = Math.max(...migrationManifest.map(([id]) => id)) + 1;
 
 const history = Effect.gen(function* () {
@@ -32,20 +32,17 @@ describe("runMigrations", () => {
   it.effect("refuses to start when another migration took a V2 id", () =>
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
-      yield* runMigrations({ toMigrationInclusive: 54 });
+      yield* runMigrations({ toMigrationInclusive: 55 });
       yield* sql`
-        INSERT INTO effect_sql_migrations (migration_id, name) VALUES (55, 'FutureMainMigration')
+        INSERT INTO effect_sql_migrations (migration_id, name) VALUES (56, 'FutureMainMigration')
       `;
       const before = yield* history;
 
-      assert.deepStrictEqual(yield* runMigrations({ toMigrationInclusive: 54 }), []);
+      assert.deepStrictEqual(yield* runMigrations({ toMigrationInclusive: 55 }), []);
       const exit = yield* Effect.exit(runMigrations());
 
       assert.isTrue(Exit.isFailure(exit));
-      assert.include(
-        String(exit),
-        "55_ProjectionThreadsAutoSettleDisabledAt (recorded: FutureMainMigration)",
-      );
+      assert.include(String(exit), "56_OrchestrationV2 (recorded: FutureMainMigration)");
       assert.deepStrictEqual(yield* history, before);
       assert.strictEqual(yield* v2TableCount, 0);
     }).pipe(Effect.provide(NodeSqliteClient.layer({ filename: ":memory:" }))),
@@ -54,7 +51,7 @@ describe("runMigrations", () => {
   it.effect("refuses to start when a later id would skip V2 migrations", () =>
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
-      yield* runMigrations({ toMigrationInclusive: 54 });
+      yield* runMigrations({ toMigrationInclusive: 55 });
       yield* sql`
         INSERT INTO effect_sql_migrations (migration_id, name)
         VALUES (${newerMigrationId}, 'FutureMainMigration')
@@ -74,7 +71,7 @@ describe("runMigrations", () => {
 
   it.effect("upgrades a database at exactly 54", () =>
     Effect.gen(function* () {
-      yield* runMigrations({ toMigrationInclusive: 54 });
+      yield* runMigrations({ toMigrationInclusive: 55 });
       assert.deepStrictEqual(yield* runMigrations(), v2Migrations);
       assert.deepStrictEqual(yield* history, migrationManifest);
       assert.isAbove(yield* v2TableCount, 0);
@@ -84,7 +81,7 @@ describe("runMigrations", () => {
   it.effect.each([30, 54])("still starts with a site-local migration at id %s", (id) =>
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
-      yield* runMigrations({ toMigrationInclusive: 54 });
+      yield* runMigrations({ toMigrationInclusive: 55 });
       yield* sql`
         UPDATE effect_sql_migrations SET name = 'SiteLocalMigration' WHERE migration_id = ${id}
       `;
@@ -135,7 +132,16 @@ it.effect("registers every migration file", () =>
     const dir = path.join(import.meta.dirname, "Migrations");
     const files = (yield* fs.readDirectory(dir)).flatMap((name) => {
       const match = /^(\d+)_(\w+)\.ts$/.exec(name);
-      return match ? [[Number(match[1]), match[2]] as const] : [];
+      return match
+        ? [
+            [
+              Number(match[1]) >= 50 && name !== "050_ProjectionThreadNote.ts"
+                ? Number(match[1]) + 1
+                : Number(match[1]),
+              match[2],
+            ] as const,
+          ]
+        : [];
     });
     assert.deepStrictEqual(
       files.toSorted(([a], [b]) => a - b),

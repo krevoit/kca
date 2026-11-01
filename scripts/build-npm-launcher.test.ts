@@ -120,7 +120,7 @@ it.layer(NodeServices.layer)("build-npm-launcher", (it) => {
         assert.deepStrictEqual(manifest.bin, { t3: "./bin/t3.mjs" });
         assert.isUndefined(manifest.dependencies);
         assert.isUndefined(manifest.optionalDependencies);
-        assert.isAbove(npmReleaseDatabaseMigration(manifest) ?? 0, 0);
+        assert.equal(npmReleaseDatabaseMigration(manifest), 77);
 
         const installed = path.join(root, "installed");
         yield* fs.makeDirectory(installed);
@@ -143,7 +143,11 @@ it.layer(NodeServices.layer)("build-npm-launcher", (it) => {
           cwd: root,
           env,
         });
-        assert.equal(first.stdout.trim(), `stub serve a b launcher=${launcher}`, first.stderr);
+        assert.equal(
+          first.stdout.trim(),
+          `stub serve a b launcher=${yield* fs.realPath(launcher)}`,
+          first.stderr,
+        );
         assert.equal(first.exitCode, 7);
         const versionDir = path.join(home, "runtime/versions", VERSION);
         assert.equal(
@@ -298,7 +302,7 @@ fs.readFileSync = (file, ...rest) => {
         });
         assert.equal(
           replaced.stdout.trim(),
-          `stub --version launcher=${launcher}`,
+          `stub --version launcher=${yield* fs.realPath(launcher)}`,
           replaced.stderr,
         );
         assert.equal(replaced.exitCode, 7);

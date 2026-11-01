@@ -52,7 +52,7 @@ const startBesideBootService = Effect.fn("test.startBesideBootService")(function
   }
   if (input.npmRuntime) {
     const versionDir = path.join(serviceHome, "runtime", "versions", activeVersion);
-    const entryPath = path.join(versionDir, "node_modules", "t3", "dist", "bin.mjs");
+    const entryPath = path.join(versionDir, "node_modules", "kca-code", "dist", "bin.mjs");
     yield* fs.makeDirectory(path.dirname(entryPath), { recursive: true });
     yield* fs.writeFileString(entryPath, "");
   }
@@ -74,13 +74,10 @@ const startBesideBootService = Effect.fn("test.startBesideBootService")(function
   const [unitPath, unit] =
     input.platform === "darwin"
       ? [
-          path.join(root, "Library", "LaunchAgents", "com.t3tools.t3code.service.plist"),
+          path.join(root, "Library", "LaunchAgents", "com.t3tools.kca.service.plist"),
           renderBootServicePlist(plan, { homeDir: root, environmentPath: "" }),
         ]
-      : [
-          path.join(root, ".config", "systemd", "user", "t3code.service"),
-          renderBootServiceUnit(plan),
-        ];
+      : [path.join(root, ".config", "systemd", "user", "kca.service"), renderBootServiceUnit(plan)];
   yield* fs.makeDirectory(path.dirname(unitPath), { recursive: true });
   yield* fs.writeFileString(unitPath, unit);
 
@@ -451,7 +448,7 @@ describe("server ownership", () => {
               "launchctl print": { code: 113 },
               "launchctl print-disabled": {
                 code: 0,
-                stdout: '"com.t3tools.t3code.service" => disabled',
+                stdout: '"com.t3tools.kca.service" => disabled',
               },
             },
           },

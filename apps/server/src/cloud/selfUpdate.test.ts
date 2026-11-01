@@ -58,11 +58,14 @@ const makeHarness = Effect.fn("test.make_self_update_harness")(function* (
   const runner = ProcessRunner.ProcessRunner.of({
     run: (input) =>
       Effect.gen(function* () {
-        if (input.command === "tar") {
-          order.push("extract");
-          const stagingDir = input.args[input.args.indexOf("-C") + 1];
-          if (stagingDir === undefined) return yield* Effect.die("missing tar target");
-          yield* fs.writeFileString(path.join(stagingDir, "t3"), "#!/bin/sh\n").pipe(Effect.orDie);
+        if (input.command === "npm") {
+          if (options.beforeDownload) yield* options.beforeDownload;
+          order.push("install");
+          const stagingDir = input.args[input.args.indexOf("--prefix") + 1];
+          if (stagingDir === undefined) return yield* Effect.die("missing npm prefix");
+          const entry = path.join(stagingDir, "node_modules", "kca-code", "dist", "bin.mjs");
+          yield* fs.makeDirectory(path.dirname(entry), { recursive: true }).pipe(Effect.orDie);
+          yield* fs.writeFileString(entry, "").pipe(Effect.orDie);
           return {
             stdout: "",
             stderr: "",
@@ -134,7 +137,7 @@ it.layer(NodeServices.layer)("server self update", (it) => {
       const web = yield* makeHarness();
       expect(
         (yield* web.selfUpdate.update({ targetVersion: "latest" }).pipe(Effect.flip)).reason,
-      ).toBe("'latest' is not an exact t3 version.");
+      ).toBe("'latest' is not an exact kca-code version.");
       const desktop = yield* makeHarness({ mode: "desktop" });
       expect(
         (yield* desktop.selfUpdate.update({ targetVersion: "1.1.0" }).pipe(Effect.flip)).reason,
@@ -220,7 +223,7 @@ it.layer(NodeServices.layer)("server self update", (it) => {
 
       yield* Deferred.succeed(releaseDownload, undefined);
       yield* Deferred.await(accepted);
-      expect(order).toEqual(["download", "extract", "preflight", "accept"]);
+      expect(order).toEqual(["install", "preflight", "accept"]);
       expect((yield* selfUpdate.update({ targetVersion: "1.1.0" }).pipe(Effect.flip)).reason).toBe(
         "A server update is already in progress.",
       );
@@ -258,8 +261,9 @@ it.layer(NodeServices.layer)("pruning runtimes on start", (it) => {
     yield* TestClock.setTime(24 * 60 * 60 * 1000);
     for (const version of [staleVersion, packageJson.version]) {
       const directory = path.join(realHome, "runtime", "versions", version);
-      yield* fs.makeDirectory(directory, { recursive: true });
-      yield* fs.writeFileString(path.join(directory, "t3"), "");
+      const entry = path.join(directory, "node_modules", "kca-code", "dist", "bin.mjs");
+      yield* fs.makeDirectory(path.dirname(entry), { recursive: true });
+      yield* fs.writeFileString(entry, "");
       const sentinel = path.join(directory, ".install-complete");
       yield* fs.writeFileString(sentinel, `${version}\n`);
       yield* fs.utimes(sentinel, 0, 0);
@@ -268,13 +272,23 @@ it.layer(NodeServices.layer)("pruning runtimes on start", (it) => {
     // Like `process.execPath`, the running runtime is reported by its real path.
     const executablePath =
       input.executable === "own runtime"
-        ? yield* fs.realPath(path.join(versionsDir, packageJson.version, "t3"))
+        ? yield* fs.realPath(
+            path.join(
+              versionsDir,
+              packageJson.version,
+              "node_modules",
+              "kca-code",
+              "dist",
+              "bin.mjs",
+            ),
+          )
         : "/usr/local/bin/node";
     const removed = yield* ServerSelfUpdate.pruneRuntimesOnStart({
       baseDir,
       managed: input.managed ?? false,
     }).pipe(
-      Effect.provideService(HostProcess.ExecutablePath, executablePath),
+      Effect.provideService(HostProcess.ExecutablePath, "/usr/local/bin/node"),
+      Effect.provideService(HostProcess.Arguments, ["node", executablePath]),
       Effect.provideService(HostProcess.Platform, "darwin"),
       Effect.provideService(HostProcess.Environment, {}),
       Effect.provideService(ProcessRunner.ProcessRunner, otherProcesses),

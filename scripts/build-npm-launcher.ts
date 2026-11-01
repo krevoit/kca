@@ -55,7 +55,9 @@ const latestServerMigrationId = Effect.fn("latestServerMigrationId")(function* (
   );
   const ids = (yield* fs.readDirectory(dir)).flatMap((name) => {
     const id = /^(\d+)_\w+\.ts$/.exec(name)?.[1];
-    return id === undefined ? [] : [Number(id)];
+    return id === undefined
+      ? []
+      : [Number(id) >= 50 && name !== "050_ProjectionThreadNote.ts" ? Number(id) + 1 : Number(id)];
   });
   return Math.max(0, ...ids);
 });

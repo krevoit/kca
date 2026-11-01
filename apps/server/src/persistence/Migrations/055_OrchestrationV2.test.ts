@@ -13,7 +13,7 @@ layer("055_OrchestrationV2", (it) => {
     Effect.sync(() => {
       assert.deepStrictEqual(
         migrationEntries.map(([id]) => id),
-        Array.from({ length: 63 }, (_, index) => index + 1),
+        Array.from({ length: 77 }, (_, index) => index + 1),
       );
     }),
   );
@@ -24,18 +24,10 @@ layer("055_OrchestrationV2", (it) => {
       yield* runMigrations({ toMigrationInclusive: 53 });
 
       const executed = yield* runMigrations();
-      assert.deepStrictEqual(executed, [
-        [54, "PullRequestFilesViewed"],
-        [55, "ProjectionThreadsAutoSettleDisabledAt"],
-        [56, "OrchestrationV2"],
-        [57, "RemoveRedundantProjectionIndexes"],
-        [58, "ScheduledTaskWebhooks"],
-        [59, "WebhookRelayDeliveries"],
-        [60, "McpAppModelContext"],
-        [61, "ThreadSnapshotWindowIndexes"],
-        [62, "PullRequestReviewGuides"],
-        [63, "ThreadFailureLookupIndex"],
-      ]);
+      assert.deepStrictEqual(
+        executed,
+        migrationEntries.filter(([id]) => id > 53).map(([id, name]) => [id, name]),
+      );
       assert.deepStrictEqual(yield* runMigrations(), []);
 
       const migrations = yield* sql<{
@@ -47,24 +39,12 @@ layer("055_OrchestrationV2", (it) => {
         WHERE migration_id >= 48
         ORDER BY migration_id
       `;
-      assert.deepStrictEqual(migrations, [
-        { migration_id: 48, name: "ProjectionThreadBranchPullRequest" },
-        { migration_id: 49, name: "ProjectionThreadsActiveOrderKey" },
-        { migration_id: 50, name: "ProjectionThreadNote" },
-        { migration_id: 51, name: "ProjectionThreadPullRequests" },
-        { migration_id: 52, name: "ProjectionThreadMessageContext" },
-        { migration_id: 53, name: "ProjectionThreadTitleState" },
-        { migration_id: 54, name: "PullRequestFilesViewed" },
-        { migration_id: 55, name: "ProjectionThreadsAutoSettleDisabledAt" },
-        { migration_id: 56, name: "OrchestrationV2" },
-        { migration_id: 57, name: "RemoveRedundantProjectionIndexes" },
-        { migration_id: 58, name: "ScheduledTaskWebhooks" },
-        { migration_id: 59, name: "WebhookRelayDeliveries" },
-        { migration_id: 60, name: "McpAppModelContext" },
-        { migration_id: 61, name: "ThreadSnapshotWindowIndexes" },
-        { migration_id: 62, name: "PullRequestReviewGuides" },
-        { migration_id: 63, name: "ThreadFailureLookupIndex" },
-      ]);
+      assert.deepStrictEqual(
+        migrations,
+        migrationEntries
+          .filter(([id]) => id >= 48)
+          .map(([migration_id, name]) => ({ migration_id, name })),
+      );
 
       const tables = yield* sql<{ readonly name: string }>`
         SELECT name
