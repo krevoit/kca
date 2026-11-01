@@ -1352,12 +1352,6 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
 
   return (
     <View className="flex-1" onLayout={handleScreenLayout}>
-      <ThreadNoteCard
-        environmentId={props.environmentId}
-        threadId={props.selectedThread.id}
-        note={props.selectedThread.note}
-        canEdit={canEditThreadNote}
-      />
       {!usesNativeWorkspaceColumns ? <NativeLayoutObserver onChange={setScreenMetrics} /> : null}
       {props.draftMode ? (
         props.draftMode.content(
@@ -1661,6 +1655,12 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                 </View>
 
                 <View style={composerSlotHidden ? { display: "none" } : undefined}>
+                  <ThreadNoteCard
+                    environmentId={props.environmentId}
+                    threadId={props.selectedThread.id}
+                    note={props.selectedThread.note}
+                    canEdit={canEditThreadNote}
+                  />
                   {isProviderSubagent ? (
                     <View
                       className="self-center px-3 pt-1.5"
