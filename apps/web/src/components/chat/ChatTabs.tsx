@@ -45,7 +45,7 @@ function ChatTabItem({
 }) {
   const shell = useThreadShell(tab);
   const environment = useEnvironment(tab.environmentId);
-  const status = useThreadStatus(tab);
+  const status = useThreadStatus(tab.draftId && !shell ? null : tab);
   const button = useRef<HTMLButtonElement>(null);
   const close = useChatTabsStore((state) => state.close);
   const open = useChatTabsStore((state) => state.open);

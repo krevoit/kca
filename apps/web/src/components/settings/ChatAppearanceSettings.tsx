@@ -77,9 +77,8 @@ export function ChatAppearanceSettings() {
                   await update({ chatBackgroundImage: await readBackground(file) });
                 } catch (cause) {
                   setError(cause instanceof Error ? cause.message : "Could not load image.");
-                } finally {
-                  setBusy(false);
                 }
+                setBusy(false);
               }}
             />
             <Button
