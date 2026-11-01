@@ -74,8 +74,10 @@ import Migration0051PullRequests from "./Migrations/050_ProjectionThreadPullRequ
 // lands on 55 for the same reason, and upstream's OrchestrationV2 batch
 // (upstream ids 55-58) lands on 56-59. Upstream's McpAppModelContext
 // (upstream id 59) lands on 60, and upstream's ThreadSnapshotWindowIndexes
-// (upstream id 60) lands on 61. The shifted migrations live in their
-// upstream 055_-060_ files because only Migrations.ts is being merged here.
+// (upstream id 60) lands on 61. Upstream's PullRequestReviewGuides (upstream
+// id 61) lands on 62, and upstream's ThreadFailureLookupIndex (upstream id
+// 62) lands on 63. The shifted migrations live in their
+// upstream 055_-062_ files because only Migrations.ts is being merged here.
 import Migration0052MessageContext from "./Migrations/051_ProjectionThreadMessageContext.ts";
 import Migration0053TitleState from "./Migrations/052_ProjectionThreadTitleState.ts";
 import Migration0054PullRequestFilesViewed from "./Migrations/053_PullRequestFilesViewed.ts";
@@ -86,6 +88,8 @@ import Migration0058ScheduledTaskWebhooks from "./Migrations/057_ScheduledTaskWe
 import Migration0059WebhookRelayDeliveries from "./Migrations/058_WebhookRelayDeliveries.ts";
 import Migration0060McpAppModelContext from "./Migrations/059_McpAppModelContext.ts";
 import Migration0061ThreadSnapshotWindowIndexes from "./Migrations/060_ThreadSnapshotWindowIndexes.ts";
+import Migration0062PullRequestReviewGuides from "./Migrations/061_PullRequestReviewGuides.ts";
+import Migration0063ThreadFailureLookupIndex from "./Migrations/062_ThreadFailureLookupIndex.ts";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -161,6 +165,8 @@ export const migrationEntries = [
   [59, "WebhookRelayDeliveries", Migration0059WebhookRelayDeliveries],
   [60, "McpAppModelContext", Migration0060McpAppModelContext],
   [61, "ThreadSnapshotWindowIndexes", Migration0061ThreadSnapshotWindowIndexes],
+  [62, "PullRequestReviewGuides", Migration0062PullRequestReviewGuides],
+  [63, "ThreadFailureLookupIndex", Migration0063ThreadFailureLookupIndex],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);
@@ -173,6 +179,48 @@ const makeMigrationLoader = (throughId?: number) =>
         .map(([id, name, migration]) => [`${id}_${name}`, migration]),
     ),
   );
+
+// V2's schema migrations start at 55 after the legacy schema migrations.
+const FIRST_V2_MIGRATION_ID = 55;
+
+/**
+ * Fail before migrating when the migrator would skip one of V2's own
+ * migrations. It skips every id up to the highest recorded one, whatever name
+ * was recorded, so a database that took a V2 id for another migration would
+ * start without V2's schema and fail on first use. Earlier ids keep the
+ * warning below: databases with a site-local migration there still work.
+ */
+const assertV2MigrationsCanRun = Effect.fn("assertV2MigrationsCanRun")(function* (
+  throughId?: number,
+) {
+  const sql = yield* SqlClient.SqlClient;
+  const tables = yield* sql`
+    SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'effect_sql_migrations'
+  `;
+  if (tables.length === 0) return;
+  const recorded = yield* sql<{
+    readonly migration_id: number;
+    readonly name: string;
+  }>`SELECT migration_id, name FROM effect_sql_migrations`;
+  const latestRecordedId = Math.max(0, ...recorded.map((row) => row.migration_id));
+  const recordedNames = new Map(recorded.map((row) => [row.migration_id, row.name]));
+  const skipped = migrationEntries.flatMap(([id, name]) => {
+    if (
+      id < FIRST_V2_MIGRATION_ID ||
+      id > latestRecordedId ||
+      (throughId !== undefined && id > throughId)
+    )
+      return [];
+    const recordedName = recordedNames.get(id);
+    if (recordedName === name) return [];
+    return [`${id}_${name} (recorded: ${recordedName ?? "nothing"})`];
+  });
+  if (skipped.length === 0) return;
+  return yield* new Migrator.MigrationError({
+    kind: "BadState",
+    message: `This database's migration history would skip required schema migrations: ${skipped.join(", ")}. The migrator skips every id up to the highest recorded id (${latestRecordedId}), regardless of name. It was probably written by a different build. Start the build that wrote it, or report this migration history so an upgrade path can be added.`,
+  });
+});
 
 /**
  * Migrator run function - no schema dumping needed
@@ -197,10 +245,12 @@ export interface RunMigrationsOptions {
 export const runMigrations = Effect.fn("runMigrations")(function* ({
   toMigrationInclusive,
 }: RunMigrationsOptions = {}) {
-  const previewMigrations =
-    toMigrationInclusive === undefined || toMigrationInclusive >= 55
-      ? yield* reconcileV2PreviewMigration()
-      : [];
+  const includesV2 =
+    toMigrationInclusive === undefined || toMigrationInclusive >= FIRST_V2_MIGRATION_ID;
+  const previewMigrations = includesV2 ? yield* reconcileV2PreviewMigration() : [];
+  if (includesV2) {
+    yield* assertV2MigrationsCanRun(toMigrationInclusive);
+  }
   const executedMigrations = [
     ...previewMigrations,
     ...(yield* run({ loader: makeMigrationLoader(toMigrationInclusive) })),

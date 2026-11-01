@@ -10,8 +10,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
+import * as ServerSettings from "../serverSettings.ts";
 import { CodexProviderCapabilitiesV2 } from "./Adapters/CodexAdapterV2.ts";
-import type { ProviderAdapterV2Shape } from "@t3tools/provider-core/server/ProviderAdapter";
+import type * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+import * as CommandReceiptStore from "./CommandReceiptStore.ts";
 import * as ProviderAdapterRegistry from "./ProviderAdapterRegistry.ts";
 import * as ThreadManagement from "./ThreadManagementService.ts";
 import * as ProviderReplayHarness from "./testkit/ProviderReplayHarness.ts";
@@ -33,7 +35,7 @@ const adapter = {
   getCapabilities: () => Effect.succeed(CodexProviderCapabilitiesV2),
   planSelectionTransition: () => Effect.succeed({ type: "apply_on_next_turn" as const }),
   openSession: () => Effect.die("provider execution is disabled in thread note tests"),
-} as ProviderAdapterV2Shape;
+} as ProviderAdapter.ProviderAdapterV2["Service"];
 
 function makeHarness() {
   const layerDatabase = SqlitePersistence.layerMemory;
@@ -44,7 +46,12 @@ function makeHarness() {
     { databaseLayer: layerDatabase, runEffectWorker: false },
   );
   const layerThreadManagement = ThreadManagement.layer.pipe(Layer.provide(layerOrchestrator));
-  return { layer: Layer.mergeAll(layerThreadManagement, layerDatabase) };
+  return {
+    layer: Layer.mergeAll(layerThreadManagement, layerDatabase).pipe(
+      Layer.provideMerge(ServerSettings.layerTest()),
+      Layer.provideMerge(CommandReceiptStore.layer.pipe(Layer.provide(layerDatabase))),
+    ),
+  };
 }
 
 function createThread(input: { readonly command: string; readonly thread: string }) {

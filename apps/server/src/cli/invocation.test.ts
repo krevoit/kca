@@ -1,12 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, expect, it } from "@effect/vitest";
-import {
-  HostProcessArguments,
-  HostProcessEnvironment,
-  HostProcessExecutablePath,
-  HostProcessIsExecutable,
-  HostProcessPlatform,
-} from "@t3tools/shared/hostProcess";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -107,7 +101,7 @@ it("formats serve suggestions to match the launching command", () => {
 });
 
 it.layer(NodeServices.layer)("root CLI commands", (it) => {
-  /** `sudo t3 browser setup` as this process would render it, with `t3` on PATH or not. */
+  /** `sudo kca browser setup` as this process would render it, with `kca` on PATH or not. */
   const rootCommand = (input: {
     readonly node: string;
     readonly entry: string;
@@ -116,74 +110,74 @@ it.layer(NodeServices.layer)("root CLI commands", (it) => {
     readonly executable?: boolean;
   }) =>
     resolveRootCliCommand("browser setup").pipe(
-      Effect.provideService(HostProcessExecutablePath, input.node),
-      Effect.provideService(HostProcessArguments, [input.node, input.entry]),
-      Effect.provideService(HostProcessIsExecutable, input.executable ?? false),
-      Effect.provideService(HostProcessPlatform, "linux"),
-      Effect.provideService(HostProcessEnvironment, { PATH: input.path ?? "", ...input.env }),
+      Effect.provideService(HostProcess.ExecutablePath, input.node),
+      Effect.provideService(HostProcess.Arguments, [input.node, input.entry]),
+      Effect.provideService(HostProcess.IsExecutable, input.executable ?? false),
+      Effect.provideService(HostProcess.Platform, "linux"),
+      Effect.provideService(HostProcess.Environment, { PATH: input.path ?? "", ...input.env }),
     );
 
-  /** A directory holding an executable `t3`, to stand in for one on PATH. */
-  const pathWithT3 = Effect.gen(function* () {
+  /** A directory holding an executable `kca`, to stand in for one on PATH. */
+  const pathWithKca = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const bin = yield* fs.makeTempDirectoryScoped();
-    yield* fs.writeFileString(path.join(bin, "t3"), "#!/bin/sh\n", { mode: 0o755 });
+    yield* fs.writeFileString(path.join(bin, "kca"), "#!/bin/sh\n", { mode: 0o755 });
     return bin;
   });
 
   it.effect("keeps a user-installed Node reachable when the command runs under sudo", () =>
     Effect.gen(function* () {
-      const npx = "/home/theo/.npm/_npx/abc/node_modules/t3/dist/bin.mjs";
+      const npx = "/home/theo/.npm/_npx/abc/node_modules/kca-code/dist/bin.mjs";
       // sudo's secure_path already has a system Node.
       expect(yield* rootCommand({ node: "/usr/bin/node", entry: npx })).toBe(
-        "sudo npx t3 browser setup",
+        "sudo npx kca-code browser setup",
       );
       // nvm, fnm, and tarball installs are dropped by sudo's PATH reset.
       expect(
         yield* rootCommand({ node: "/home/theo/.nvm/versions/node/v24/bin/node", entry: npx }),
-      ).toBe('sudo env "PATH=$PATH" npx t3 browser setup');
+      ).toBe('sudo env "PATH=$PATH" npx kca-code browser setup');
       expect(
         yield* rootCommand({
           node: "/home/theo/.local/node/bin/node",
-          entry: "/home/theo/.local/lib/node_modules/t3/dist/bin.mjs",
-          path: yield* pathWithT3,
+          entry: "/home/theo/.local/lib/node_modules/kca-code/dist/bin.mjs",
+          path: yield* pathWithKca,
         }),
-      ).toBe('sudo env "PATH=$PATH" t3 browser setup');
+      ).toBe('sudo env "PATH=$PATH" kca browser setup');
     }).pipe(Effect.scoped),
   );
 
-  it.effect("names this install's launcher when t3 is not on PATH", () =>
+  it.effect("names this install's launcher when kca is not on PATH", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const home = yield* fs.makeTempDirectoryScoped();
-      const shim = path.join(home, ".local bin", "t3");
+      const shim = path.join(home, ".local bin", "kca");
       yield* fs.makeDirectory(path.dirname(shim), { recursive: true });
       yield* fs.writeFileString(shim, "#!/bin/sh\n", { mode: 0o755 });
       const desktop = {
-        node: "/tmp/.mount_T3abc/t3code",
-        entry: "/tmp/.mount_T3abc/resources/app.asar/apps/server/dist/bin.mjs",
+        node: "/tmp/.mount_KCAabc/kca",
+        entry: "/tmp/.mount_KCAabc/resources/app.asar/apps/server/dist/bin.mjs",
         env: { T3CODE_CLI_PATH: shim },
       };
       // The desktop app's shim, quoted for the shell and run as root as is.
       expect(yield* rootCommand(desktop)).toBe(`sudo '${shim}' browser setup`);
-      // A `t3` the person put on PATH still wins.
-      expect(yield* rootCommand({ ...desktop, path: yield* pathWithT3 })).toBe(
-        'sudo env "PATH=$PATH" t3 browser setup',
+      // A `kca` the person put on PATH still wins.
+      expect(yield* rootCommand({ ...desktop, path: yield* pathWithKca })).toBe(
+        'sudo env "PATH=$PATH" kca browser setup',
       );
       // A standalone binary names itself.
       expect(
         yield* rootCommand({
-          node: "/opt/t3/t3",
-          entry: "/opt/t3/t3",
+          node: "/opt/kca/kca",
+          entry: "/opt/kca/kca",
           executable: true,
         }),
-      ).toBe("sudo /opt/t3/t3 browser setup");
-      // A stale shim path, then no launcher at all, fall back to plain `t3`.
+      ).toBe("sudo /opt/kca/kca browser setup");
+      // A stale shim path, then no launcher at all, fall back to plain `kca`.
       expect(
         yield* rootCommand({ ...desktop, env: { T3CODE_CLI_PATH: path.join(home, "gone") } }),
-      ).toBe('sudo env "PATH=$PATH" t3 browser setup');
+      ).toBe('sudo env "PATH=$PATH" kca browser setup');
     }).pipe(Effect.scoped),
   );
 });
@@ -195,18 +189,17 @@ it.layer(NodeServices.layer)("manual server installation ownership", (it) => {
       const path = yield* Path.Path;
       const root = yield* fs.makeTempDirectoryScoped();
       for (const [relative, kind] of [
-        ["npm/_npx/hash/node_modules/t3/dist/bin.mjs", "npx"],
-        ["npm/_npx/hash/node_modules/@t3code/t3-linux-x64/t3", "npx"],
-        ["pnpm/dlx/hash/node_modules/t3/dist/bin.mjs", "pnpm-dlx"],
-        [".bun/install/cache/t3/dist/bin.mjs", "bunx"],
+        ["npm/_npx/hash/node_modules/kca-code/dist/bin.mjs", "npx"],
+        ["pnpm/dlx/hash/node_modules/kca-code/dist/bin.mjs", "pnpm-dlx"],
+        [".bun/install/cache/kca-code/dist/bin.mjs", "bunx"],
       ] as const) {
         const entry = path.join(root, relative);
         yield* fs.makeDirectory(path.dirname(entry), { recursive: true });
         yield* fs.writeFileString(entry, "");
         const installation = yield* resolveServerInstallation.pipe(
-          Effect.provideService(HostProcessArguments, ["node", entry]),
-          Effect.provideService(HostProcessExecutablePath, entry),
-          Effect.provideService(HostProcessIsExecutable, entry.endsWith("/t3")),
+          Effect.provideService(HostProcess.Arguments, ["node", entry]),
+          Effect.provideService(HostProcess.ExecutablePath, entry),
+          Effect.provideService(HostProcess.IsExecutable, entry.endsWith("/kca")),
         );
         expect(installation).toEqual({ kind });
       }
@@ -218,68 +211,36 @@ it.layer(NodeServices.layer)("manual server installation ownership", (it) => {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const root = yield* fs.makeTempDirectoryScoped();
-      const prefix = path.join(root, "bunx-tools");
-      const packageRoot = path.join(prefix, "lib/node_modules/t3");
+      // realPath: macOS temp dirs live under a /var → /private/var symlink.
+      const prefix = path.join(yield* fs.realPath(root), "bunx-tools");
+      const packageRoot = path.join(prefix, "lib/node_modules/kca-code");
       const entry = path.join(packageRoot, "dist/bin.mjs");
-      const globalBin = path.join(prefix, "bin/t3");
+      const globalBin = path.join(prefix, "bin/kca");
       yield* fs.makeDirectory(path.dirname(entry), { recursive: true });
       yield* fs.makeDirectory(path.dirname(globalBin), { recursive: true });
       yield* fs.writeFileString(entry, "");
       yield* fs.writeFileString(
         path.join(packageRoot, "package.json"),
-        '{"name":"t3","version":"0.0.45","bin":{"t3":"./dist/bin.mjs"}}',
+        '{"name":"kca-code","version":"0.0.45","bin":{"kca":"./dist/bin.mjs"}}',
       );
       const resolve = resolveServerInstallation.pipe(
-        Effect.provideService(HostProcessArguments, ["node", entry]),
-        Effect.provideService(HostProcessIsExecutable, false),
-        Effect.provideService(HostProcessPlatform, "linux"),
+        Effect.provideService(HostProcess.Arguments, ["node", entry]),
+        Effect.provideService(HostProcess.IsExecutable, false),
+        Effect.provideService(HostProcess.Platform, "linux"),
       );
       expect(yield* resolve).toBeNull();
       yield* fs.symlink(entry, globalBin);
       expect(yield* resolve).toEqual({ kind: "npm-global", prefix });
       yield* fs.remove(globalBin);
-      yield* fs.writeFileString(globalBin, "an unrelated t3 command");
+      yield* fs.writeFileString(globalBin, "an unrelated kca command");
       expect(yield* resolve).toBeNull();
-      expect(yield* resolve.pipe(Effect.provideService(HostProcessPlatform, "win32"))).toBeNull();
+      expect(yield* resolve.pipe(Effect.provideService(HostProcess.Platform, "win32"))).toBeNull();
     }),
   );
 
-  it.effect("proves the native executable belongs to the npm launcher", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped();
-      const prefix = path.join(root, "bunx-tools");
-      const packageRoot = path.join(prefix, "lib/node_modules/t3");
-      const launcher = path.join(packageRoot, "bin/t3.js");
-      const entry = path.join(packageRoot, "node_modules/@t3code/t3-linux-x64/t3");
-      yield* fs.makeDirectory(path.dirname(launcher), { recursive: true });
-      yield* fs.makeDirectory(path.dirname(entry), { recursive: true });
-      yield* fs.makeDirectory(path.join(prefix, "bin"));
-      yield* fs.writeFileString(launcher, "");
-      yield* fs.writeFileString(entry, "");
-      yield* fs.writeFileString(
-        path.join(packageRoot, "package.json"),
-        '{"name":"t3","version":"0.0.45","bin":{"t3":"./bin/t3.js"},"optionalDependencies":{"@t3code/t3-linux-x64":"0.0.45"}}',
-      );
-      yield* fs.symlink(launcher, path.join(prefix, "bin/t3"));
-      const resolve = resolveServerInstallation.pipe(
-        Effect.provideService(HostProcessExecutablePath, entry),
-        Effect.provideService(HostProcessIsExecutable, true),
-        Effect.provideService(HostProcessPlatform, "linux"),
-      );
-      for (const [version, expected] of [
-        ["0.0.44", null],
-        ["0.0.45", { kind: "npm-global", prefix }],
-      ]) {
-        yield* fs.writeFileString(
-          path.join(path.dirname(entry), "package.json"),
-          `{"name":"@t3code/t3-linux-x64","version":"${version}"}`,
-        );
-        expect(yield* resolve).toEqual(expected);
-      }
-    }),
-  );
+  // KCA fork: no native launcher archives or platform packages ship, so there
+  // is no executable-ownership case to prove. An executable entry that is not
+  // the global npm bin resolves to null, covered by the unknown-installs test.
 
   it.effect("leaves local, standalone, missing and unreadable installs unknown", () =>
     Effect.gen(function* () {
@@ -287,9 +248,9 @@ it.layer(NodeServices.layer)("manual server installation ownership", (it) => {
       const path = yield* Path.Path;
       const root = yield* fs.makeTempDirectoryScoped();
       for (const relative of [
-        "project/node_modules/t3/dist/bin.mjs",
+        "project/node_modules/kca-code/dist/bin.mjs",
         "project/apps/server/dist/bin.mjs",
-        ".t3/runtime/0.0.45/t3",
+        ".t3/runtime/0.0.45/kca",
         "missing/dist/bin.mjs",
       ]) {
         const entry = path.join(root, relative);
@@ -299,8 +260,8 @@ it.layer(NodeServices.layer)("manual server installation ownership", (it) => {
         }
         expect(
           yield* resolveServerInstallation.pipe(
-            Effect.provideService(HostProcessArguments, ["node", entry]),
-            Effect.provideService(HostProcessIsExecutable, false),
+            Effect.provideService(HostProcess.Arguments, ["node", entry]),
+            Effect.provideService(HostProcess.IsExecutable, false),
           ),
         ).toBeNull();
       }

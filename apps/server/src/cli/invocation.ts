@@ -5,13 +5,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import type { ServerInstallation } from "@t3tools/contracts";
-import {
-  HostProcessArguments,
-  HostProcessEnvironment,
-  HostProcessExecutablePath,
-  HostProcessIsExecutable,
-  HostProcessPlatform,
-} from "@t3tools/shared/hostProcess";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import { isCommandAvailable } from "@t3tools/shared/shell";
 
 import packageJson from "../../package.json" with { type: "json" };
@@ -51,7 +45,7 @@ function detectCliRunner(entryPath: string): CliRunner | null {
 const InstallManifest = Schema.Struct({
   name: Schema.String,
   version: Schema.String,
-  bin: Schema.optionalKey(Schema.Struct({ t3: Schema.String })),
+  bin: Schema.optionalKey(Schema.Struct({ kca: Schema.String })),
   optionalDependencies: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
 });
 const decodeInstallManifest = Schema.decodeUnknownEffect(Schema.fromJsonString(InstallManifest));
@@ -60,15 +54,15 @@ const decodeInstallManifest = Schema.decodeUnknownEffect(Schema.fromJsonString(I
 export const resolveServerInstallation = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const args = yield* HostProcessArguments;
-  const executable = yield* HostProcessIsExecutable;
-  const executablePath = yield* HostProcessExecutablePath;
-  const platform = yield* HostProcessPlatform;
+  const args = yield* HostProcess.Arguments;
+  const executable = yield* HostProcess.IsExecutable;
+  const executablePath = yield* HostProcess.ExecutablePath;
+  const platform = yield* HostProcess.Platform;
   const entry = yield* fs.realPath(executable ? executablePath : (args[1] ?? ""));
-  const match =
-    /^(.*)\/lib\/node_modules\/t3\/(?:dist\/bin\.mjs|bin\/t3\.js|node_modules\/@t3code\/t3-[^/]+\/t3)$/.exec(
-      entry,
-    );
+  // KCA ships only the kca-code npm package (bin: kca); there are no native
+  // launcher archives or platform packages, so only the global npm layout can
+  // be proven. Anything else falls through to runner detection below.
+  const match = /^(.*)\/lib\/node_modules\/kca-code\/dist\/bin\.mjs$/.exec(entry);
   if (!match) {
     const runner = detectCliRunner(entry);
     return runner === null
@@ -86,25 +80,15 @@ export const resolveServerInstallation = Effect.gen(function* () {
   )
     return null;
 
-  const packageRoot = path.join(prefix, "lib/node_modules/t3");
+  const packageRoot = path.join(prefix, "lib/node_modules/kca-code");
   const manifest = yield* fs
     .readFileString(path.join(packageRoot, "package.json"))
     .pipe(Effect.flatMap(decodeInstallManifest));
-  if (manifest.name !== "t3" || !manifest.bin) return null;
-  const bin = yield* fs.realPath(path.join(packageRoot, manifest.bin.t3));
-  const globalBin = yield* fs.realPath(path.join(prefix, "bin/t3"));
+  if (manifest.name !== "kca-code" || !manifest.bin) return null;
+  const bin = yield* fs.realPath(path.join(packageRoot, manifest.bin.kca));
+  const globalBin = yield* fs.realPath(path.join(prefix, "bin/kca"));
   if (globalBin !== bin) return null;
-  if (executable) {
-    const nativeManifest = yield* fs
-      .readFileString(path.join(path.dirname(entry), "package.json"))
-      .pipe(Effect.flatMap(decodeInstallManifest));
-    if (
-      manifest.bin.t3 !== "./bin/t3.js" ||
-      manifest.optionalDependencies?.[nativeManifest.name] !== nativeManifest.version ||
-      nativeManifest.version !== manifest.version
-    )
-      return null;
-  } else if (bin !== entry) {
+  if (bin !== entry) {
     return null;
   }
   return { kind: "npm-global", prefix } satisfies ServerInstallation;
@@ -141,7 +125,7 @@ export function formatCliCommand(input: {
 
 /** `formatCliCommand` against this process's real entry path and version. */
 export const resolveCliCommand = (subcommand: string) =>
-  Effect.map(HostProcessArguments, (processArguments) =>
+  Effect.map(HostProcess.Arguments, (processArguments) =>
     formatCliCommand({
       subcommand,
       entryPath: processArguments[1] ?? "",
@@ -154,32 +138,32 @@ const shellWord = (value: string) =>
   /^[\w@%+=:,./-]+$/.test(value) ? value : `'${value.replaceAll("'", `'"'"'`)}'`;
 
 /**
- * The launcher a person can type to run this install when `t3` is not on
- * PATH: the desktop app's `t3` shim, which the app and the shim itself name in
+ * The launcher a person can type to run this install when `kca` is not on
+ * PATH: the desktop app's `kca` shim, which the app and the shim itself name in
  * `T3CODE_CLI_PATH`, or a standalone binary's own path. Script installs (a
- * repo checkout) have no single launcher and keep plain `t3`.
+ * repo checkout) have no single launcher and keep plain `kca`.
  */
 const resolveInstallLauncher = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
-  const shim = (yield* HostProcessEnvironment).T3CODE_CLI_PATH?.trim();
+  const shim = (yield* HostProcess.Environment).T3CODE_CLI_PATH?.trim();
   if (shim && (yield* fs.exists(shim).pipe(Effect.orElseSucceed(() => false)))) {
     return Option.some(shim);
   }
-  return (yield* HostProcessIsExecutable)
-    ? Option.some(yield* HostProcessExecutablePath)
+  return (yield* HostProcess.IsExecutable)
+    ? Option.some(yield* HostProcess.ExecutablePath)
     : Option.none<string>();
 });
 
 /**
- * `t3 <subcommand>` for a person to run on this host: `t3` when it is on PATH,
+ * `kca <subcommand>` for a person to run on this host: `kca` when it is on PATH,
  * the package runner this process came from, or else the absolute path of the
  * launcher for this install, such as the one the desktop app installs.
  */
 const resolveHostCliCommand = (subcommand: string) =>
   Effect.gen(function* () {
     const command = yield* resolveCliCommand(subcommand);
-    if (command !== `t3 ${subcommand}`) return { command, launcher: false };
-    if (yield* isCommandAvailable("t3")) return { command, launcher: false };
+    if (command !== `kca ${subcommand}`) return { command, launcher: false };
+    if (yield* isCommandAvailable("kca")) return { command, launcher: false };
     const launcher = yield* resolveInstallLauncher;
     return Option.isSome(launcher)
       ? { command: `${shellWord(launcher.value)} ${subcommand}`, launcher: true }
@@ -187,9 +171,9 @@ const resolveHostCliCommand = (subcommand: string) =>
   });
 
 /**
- * `t3 <subcommand>` as root, for setup a person runs once on the host. `sudo`
+ * `kca <subcommand>` as root, for setup a person runs once on the host. `sudo`
  * resets PATH on most distributions, which drops a user-installed Node (nvm,
- * fnm, a tarball) and with it `npx` or a global `t3`, so the command carries
+ * fnm, a tarball) and with it `npx` or a global `kca`, so the command carries
  * PATH through unless Node is on root's PATH too. An absolute launcher needs
  * neither.
  */
@@ -197,7 +181,7 @@ export const resolveRootCliCommand = (subcommand: string) =>
   Effect.gen(function* () {
     const { command, launcher } = yield* resolveHostCliCommand(subcommand);
     if (launcher) return `sudo ${command}`;
-    const executablePath = yield* HostProcessExecutablePath;
+    const executablePath = yield* HostProcess.ExecutablePath;
     const systemNode = ROOT_PATH_DIRECTORIES.some((directory) =>
       executablePath.startsWith(`${directory}/`),
     );
