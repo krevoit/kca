@@ -61,13 +61,16 @@ export class PinnedRuntimeInstallError extends Schema.TaggedError<PinnedRuntimeI
     exitCode: Schema.optional(Schema.Number),
     stdoutLength: Schema.optional(Schema.Number),
     stderrLength: Schema.optional(Schema.Number),
+    outputTail: Schema.optional(Schema.String),
     cause: Schema.optional(Schema.Defect()),
   },
 ) {
   override get message(): string {
-    return this.exitCode === undefined
-      ? `Pinned runtime install failed while ${this.step}.`
-      : `Pinned runtime install failed while ${this.step} (exit code ${this.exitCode}).`;
+    const summary =
+      this.exitCode === undefined
+        ? `Pinned runtime install failed while ${this.step}.`
+        : `Pinned runtime install failed while ${this.step} (exit code ${this.exitCode}).`;
+    return this.outputTail === undefined ? summary : `${summary}\n${this.outputTail}`;
   }
 }
 
@@ -207,8 +210,11 @@ const installPinnedRuntime = Effect.fn("cloud.pinned_runtime.ensure_installed")(
               exitCode: Number(result.code),
               stdoutLength: result.stdout.length,
               stderrLength: result.stderr.length,
+              outputTail: ProcessRunner.processOutputTail(result),
             }),
         ),
+        // A registry or network hiccup should not cost a manual retry; staging is safe to reuse.
+        Effect.retry({ times: 1, while: (error) => error.exitCode !== undefined }),
       );
 
     input.onProgress?.({ stage: "validate" });

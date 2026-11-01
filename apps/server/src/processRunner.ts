@@ -44,6 +44,21 @@ export interface ProcessRunOutput {
   readonly stderrInvalidUtf8: boolean;
 }
 
+const OUTPUT_TAIL_LINES = 12;
+const OUTPUT_TAIL_CHARS = 2000;
+
+/** The end of a failed command's own explanation: stderr where tools report failures, else stdout. */
+export function processOutputTail(result: ProcessRunOutput): string | undefined {
+  const text = result.stderr.trim() === "" ? result.stdout : result.stderr;
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.length > 0)
+    .slice(-OUTPUT_TAIL_LINES);
+  const tail = lines.join("\n");
+  return tail === "" ? undefined : tail.slice(-OUTPUT_TAIL_CHARS);
+}
+
 const ProcessInvocationFields = {
   command: Schema.String,
   argumentCount: Schema.Number,

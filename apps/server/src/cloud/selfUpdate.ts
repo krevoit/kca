@@ -238,6 +238,7 @@ export const make = Effect.fn("cloud.server_self_update.make")(function* () {
                         exitCode: Number(result.code),
                         stdoutLength: result.stdout.length,
                         stderrLength: result.stderr.length,
+                        outputTail: ProcessRunner.processOutputTail(result),
                       }),
                     );
                   }

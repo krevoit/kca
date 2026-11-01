@@ -112,8 +112,8 @@ it.layer(NodeServices.layer)("ensurePinnedRuntimeInstalled", (it) => {
         runner: ProcessRunner.ProcessRunner.of({
           run: () =>
             Effect.succeed({
-              stdout: "npm ERR! registry unreachable",
-              stderr: "",
+              stdout: "npm log noise",
+              stderr: "npm ERR! code ENOSPC\nnpm ERR! no space left on device",
               code: ChildProcessSpawner.ExitCode(1),
               timedOut: false,
               stdoutTruncated: false,
@@ -125,7 +125,47 @@ it.layer(NodeServices.layer)("ensurePinnedRuntimeInstalled", (it) => {
         validate: () => Effect.die("must not validate a failed install"),
       }).pipe(Effect.flip);
       assert.instanceOf(error, PinnedRuntimeInstallError);
+      assert.include(error.message, "(exit code 1)");
+      assert.include(error.message, "npm ERR! code ENOSPC\nnpm ERR! no space left on device");
+      assert.notInclude(error.message, "npm log noise");
       assert.deepEqual(yield* fs.readDirectory(path.join(baseDir, "runtime", "versions")), []);
+    }),
+  );
+
+  it.effect("retries a failed npm install once before giving up", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const baseDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-pinned-npm-retry-" });
+      let attempts = 0;
+      const error = yield* ensurePinnedRuntimeInstalled({
+        baseDir,
+        version,
+        fs,
+        path,
+        platform: "linux",
+        arch: "x64",
+        httpClient: releaseHttpClient(yield* validChecksums),
+        runner: ProcessRunner.ProcessRunner.of({
+          run: () =>
+            Effect.sync(() => {
+              attempts += 1;
+              return {
+                stdout: "",
+                stderr: "npm ERR! code EAI_AGAIN",
+                code: ChildProcessSpawner.ExitCode(1),
+                timedOut: false,
+                stdoutTruncated: false,
+                stderrTruncated: false,
+                stdoutInvalidUtf8: false,
+                stderrInvalidUtf8: false,
+              };
+            }),
+        }),
+        validate: () => Effect.die("must not validate a failed install"),
+      }).pipe(Effect.flip);
+      assert.instanceOf(error, PinnedRuntimeInstallError);
+      assert.equal(attempts, 2);
     }),
   );
 

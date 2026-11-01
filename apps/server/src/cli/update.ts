@@ -460,6 +460,9 @@ const runUpdate = Effect.fn("cli.update.run")(function* (input: {
                   new PinnedRuntimeInstallError({
                     step: "verifying the downloaded t3",
                     exitCode: Number(result.code),
+                    stdoutLength: result.stdout.length,
+                    stderrLength: result.stderr.length,
+                    outputTail: ProcessRunner.processOutputTail(result),
                   }),
                 ),
           ),

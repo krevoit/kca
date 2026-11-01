@@ -396,13 +396,16 @@ export class BootServiceCommandError extends Schema.TaggedError<BootServiceComma
     exitCode: Schema.optional(Schema.Number),
     stdoutLength: Schema.optional(Schema.Number),
     stderrLength: Schema.optional(Schema.Number),
+    outputTail: Schema.optional(Schema.String),
     cause: Schema.optional(Schema.Defect()),
   },
 ) {
   override get message(): string {
-    return this.exitCode === undefined
-      ? `Background setup failed while ${this.step}.`
-      : `Background setup failed while ${this.step} (exit code ${this.exitCode}).`;
+    const summary =
+      this.exitCode === undefined
+        ? `Background setup failed while ${this.step}.`
+        : `Background setup failed while ${this.step} (exit code ${this.exitCode}).`;
+    return this.outputTail === undefined ? summary : `${summary}\n${this.outputTail}`;
   }
 }
 
@@ -651,6 +654,7 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
             exitCode: Number(result.code),
             stdoutLength: result.stdout.length,
             stderrLength: result.stderr.length,
+            outputTail: ProcessRunner.processOutputTail(result),
           }),
       ),
       Effect.tapError(logFailure),
@@ -780,6 +784,7 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
                       exitCode: Number(result.code),
                       stdoutLength: result.stdout.length,
                       stderrLength: result.stderr.length,
+                      outputTail: ProcessRunner.processOutputTail(result),
                     }),
                   );
             }),
@@ -792,6 +797,7 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
               exitCode: error.exitCode,
               stdoutLength: error.stdoutLength,
               stderrLength: error.stderrLength,
+              outputTail: error.outputTail,
               cause: error,
             })
           : new BootServiceInstallError({ cause: error }),
