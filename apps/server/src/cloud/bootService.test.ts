@@ -129,10 +129,19 @@ it("escapes XML in host paths", () => {
 const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
   platform: NodeJS.Platform = "linux",
   installerPath = macInstallerPath,
+  xdgConfigHome?: string,
+  managerXdgConfigHome = xdgConfigHome,
 ) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const home = yield* fs.makeTempDirectoryScoped({ prefix: "t3-boot-service-test-" });
+  const managerUnitDir = path.join(
+    managerXdgConfigHome !== undefined && path.isAbsolute(managerXdgConfigHome)
+      ? managerXdgConfigHome
+      : path.join(home, ".config"),
+    "systemd",
+    "user",
+  );
   const baseDir = path.join(home, ".t3");
   const statePath = path.join(baseDir, "runtime", "service-state.json");
   // A complete pinned runtime is already present, so install only validates
@@ -148,6 +157,7 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
   );
 
   const commands: string[] = [];
+  const invocations: ProcessRunner.ProcessRunInput[] = [];
   const timeouts = new Map<string, unknown>();
   const control: {
     failCommand: string | undefined;
@@ -167,12 +177,15 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
     ) {
       const command = `${input.command} ${input.args.join(" ")}`;
       commands.push(command);
+      invocations.push(input);
       timeouts.set(command, input.timeout);
       const failed = command === control.failCommand;
       if (!failed && command === "loginctl enable-linger --no-ask-password 501")
         control.linger = "yes";
       if (!failed && command === "systemctl --user enable kca.service") control.enabled = true;
       if (!failed && command === "systemctl --user restart kca.service") control.active = true;
+      // A timed-out stop may still stop the service.
+      if (command === "systemctl --user stop kca.service") control.active = false;
       if (
         control.stateAfterStop !== undefined &&
         (command === "systemctl --user stop kca.service" ||
@@ -181,17 +194,29 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
         yield* fs.writeFileString(statePath, control.stateAfterStop).pipe(Effect.orDie);
       }
       return {
-        stdout: input.args.includes("--version")
-          ? // The runtime under test reports the version of the directory it
-            // was launched from, like the real CLI.
-            `kca v${/versions\/([^/]+)\//.exec(input.args[0] ?? input.command)?.[1] ?? "1.2.3"}\n`
-          : input.command === "loginctl" && input.args[0] === "show-user"
-            ? `${control.linger}\n`
-            : input.args[1] === "is-enabled"
-              ? control.enabled
-                ? "enabled\n"
-                : "disabled\n"
-              : "",
+        stdout:
+          input.command === "busctl"
+            ? JSON.stringify({
+                type: "as",
+                data: [
+                  "/usr/lib/systemd/user",
+                  `${managerUnitDir}.control`,
+                  "/run/user/501/systemd/transient",
+                  managerUnitDir,
+                  "/etc/systemd/user",
+                ],
+              })
+            : input.args.includes("--version")
+              ? // The runtime under test reports the version of the directory it
+                // was launched from, like the real CLI.
+                `kca v${/versions\/([^/]+)\//.exec(input.args[0] ?? input.command)?.[1] ?? "1.2.3"}\n`
+              : input.command === "loginctl" && input.args[0] === "show-user"
+                ? `${control.linger}\n`
+                : input.args[1] === "is-enabled"
+                  ? control.enabled
+                    ? "enabled\n"
+                    : "disabled\n"
+                  : "",
         stderr: "",
         code: ChildProcessSpawner.ExitCode(
           failed || (input.args[1] === "is-active" && !control.active) ? 1 : 0,
@@ -241,6 +266,7 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
             ConfigProvider.fromEnv({
               env: {
                 HOME: home,
+                ...(xdgConfigHome === undefined ? {} : { XDG_CONFIG_HOME: xdgConfigHome }),
                 ...(environmentPath === undefined || environmentPath === ""
                   ? {}
                   : { PATH: environmentPath }),
@@ -251,7 +277,19 @@ const makeHarness = Effect.fn("test.make_boot_service_harness")(function* (
       ),
     );
   const service = yield* makeService();
-  return { service, makeService, fs, statePath, commands, timeouts, control, runtime };
+  return {
+    service,
+    makeService,
+    fs,
+    home,
+    baseDir,
+    statePath,
+    commands,
+    invocations,
+    timeouts,
+    control,
+    runtime,
+  };
 });
 
 it.layer(NodeServices.layer)("boot service install", (it) => {
@@ -346,11 +384,52 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
     }),
   );
 
-  it.effect("installs, reports current state, and uninstalls", () =>
+  it.effect.each([
+    "unset",
+    "empty",
+    "relative",
+    "relocated",
+    "shell-only",
+    "manager-only",
+    "manager-unavailable",
+  ] as const)("installs, discovers, restarts, and uninstalls with $XDG_CONFIG_HOME %s", (setting) =>
     Effect.gen(function* () {
-      const { service, fs, statePath, timeouts } = yield* makeHarness();
       const path = yield* Path.Path;
+      const fs = yield* FileSystem.FileSystem;
+      const configRoot = yield* fs.makeTempDirectoryScoped({ prefix: "t3-xdg-config-" });
+      const xdgConfigHome = {
+        unset: undefined,
+        empty: "",
+        relative: "relative-config",
+        relocated: path.join(configRoot, "config root"),
+        "shell-only": path.join(configRoot, "config root"),
+        "manager-only": undefined,
+        "manager-unavailable": path.join(configRoot, "config root"),
+      }[setting];
+      const managerXdgConfigHome =
+        setting === "shell-only"
+          ? ""
+          : setting === "manager-only"
+            ? path.join(configRoot, "config root")
+            : undefined;
+      const { service, makeService, home, statePath, timeouts, runtime, control } =
+        yield* makeHarness("linux", undefined, xdgConfigHome, managerXdgConfigHome);
+      const unitPath = path.join(
+        setting === "relocated" || setting === "manager-only" || setting === "manager-unavailable"
+          ? path.join(configRoot, "config root")
+          : path.join(home, ".config"),
+        "systemd",
+        "user",
+        "kca.service",
+      );
+      expect(yield* service.status).toMatchObject({ installed: false, unitPath });
       const plan = yield* service.install();
+      expect(plan.unitPath).toBe(unitPath);
+      if (setting === "manager-unavailable") {
+        control.failCommand =
+          "busctl --user --json=short get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager UnitPath";
+      }
+      const discoveredService = yield* makeService();
 
       expect(parseServiceState(yield* fs.readFileString(statePath))).toEqual({
         protocol: SERVICE_LAUNCHER_PROTOCOL,
@@ -367,6 +446,12 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
         current: true,
         installedVersion: "1.2.3",
       });
+      expect(yield* discoveredService.status).toMatchObject({
+        installed: true,
+        current: true,
+        unitPath,
+      });
+      expect(yield* discoveredService.restart).toBe("restarted");
       const pendingState = JSON.stringify({
         protocol: SERVICE_LAUNCHER_PROTOCOL,
         activeVersion: "1.2.3",
@@ -380,10 +465,10 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
       });
       yield* fs.writeFileString(statePath, pendingState);
       expect((yield* service.status).current).toBe(false);
-      expect(yield* service.uninstall).toBe(true);
-      expect((yield* service.status).installed).toBe(false);
-      // The stop can block up to systemd's 90s TimeoutStopSec; the runner's
-      // 60s default would cancel it mid-shutdown.
+      expect(yield* discoveredService.uninstall).toBe(true);
+      expect(yield* fs.exists(unitPath)).toBe(false);
+      expect((yield* discoveredService.status).installed).toBe(false);
+      // systemd can take 90s to stop, exceeding the runner's 60s default.
       expect(timeouts.get("systemctl --user disable --now kca.service")).toEqual(
         Duration.seconds(120),
       );
@@ -574,9 +659,33 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
 
   it.effect("restart stops and starts an installed service, and is a no-op otherwise", () =>
     Effect.gen(function* () {
-      const { service, commands } = yield* makeHarness();
+      const { service, commands, control } = yield* makeHarness();
       expect(yield* service.restart).toBe("skipped");
       yield* service.install();
+      const failure = yield* service
+        .withStopped(Effect.failSync(() => (control.active ? "running" : "repair failed")))
+        .pipe(Effect.flip);
+      expect(failure).toBe("repair failed");
+      expect(control.active).toBe(true);
+
+      control.failCommand = "systemctl --user stop kca.service";
+      let ran = false;
+      const stopFailure = yield* service
+        .withStopped(
+          Effect.sync(() => {
+            ran = true;
+          }),
+        )
+        .pipe(Effect.flip);
+      expect(stopFailure).toMatchObject({
+        _tag: "BootServiceCommandError",
+        step: "stopping the installed service",
+      });
+      expect(ran).toBe(false);
+      expect(control.active).toBe(true);
+      control.failCommand = undefined;
+
+      control.active = false;
       commands.length = 0;
 
       expect(yield* service.restart).toBe("restarted");

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { usePrimaryCloudLinkState } from "../../cloud/primaryCloudLinkState";
+import { usePrimaryCloudLinkState } from "../../cloud/cloudLinkState";
 
 export function CloudTunnelNotice() {
   const { data } = usePrimaryCloudLinkState();

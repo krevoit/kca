@@ -19,7 +19,7 @@ import { hasThreadNote } from "../threadActionMenu.logic";
 import { Button } from "../ui/button";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 
-// Sticky user note kept in the thread's bottom-left corner.
+// Sticky user note docked above the composer, open to the thread.
 export function ThreadNoteCard({
   environmentId,
   threadId,
@@ -172,11 +172,11 @@ export function ThreadNoteCard({
 
   const tooLong = draft.length > ORCHESTRATION_V2_THREAD_NOTE_MAX_LENGTH;
 
-  // The expanded card stays in the same bottom-left lane as the chip and
-  // grows upward within the space reserved by the chat layout.
+  // The card shares the chip's lane above the composer and grows upward inside
+  // the space the chat layout reserves for it.
   return (
     <div
-      className="relative z-30 min-w-0 max-h-[calc(100dvh-2rem)] w-full max-w-full"
+      className="relative z-30 min-w-0 max-h-[min(24rem,45dvh)] w-full max-w-full"
       data-thread-note={threadKey}
       onKeyDown={(event) => {
         if (event.key === "Escape" && !editing) {
@@ -185,7 +185,7 @@ export function ThreadNoteCard({
         }
       }}
     >
-      <div className="flex min-w-0 max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-xl border border-warning bg-warning-surface px-3.5 py-2.5 shadow-xl dark:border-warning dark:bg-warning-surface">
+      <div className="flex min-w-0 max-h-[min(24rem,45dvh)] flex-col overflow-hidden rounded-xl border border-warning bg-warning-surface px-3.5 py-2.5 shadow-xl dark:border-warning dark:bg-warning-surface">
         <div className="flex items-center justify-between gap-2 text-xs font-medium text-warning-foreground dark:text-warning-foreground">
           <div className="flex items-center gap-1.5">
             <StickyNoteIcon className="size-3.5" aria-hidden="true" />
@@ -217,7 +217,7 @@ export function ThreadNoteCard({
               aria-invalid={tooLong || undefined}
               placeholder="Jot down context for yourself…"
               rows={3}
-              className="field-sizing-content mt-1.5 block min-w-0 max-h-[calc(100dvh-12rem)] min-h-16 w-full resize-none overflow-y-auto wrap-anywhere bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              className="field-sizing-content mt-1.5 block min-w-0 max-h-[min(12rem,24dvh)] min-h-16 w-full resize-none overflow-y-auto wrap-anywhere bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               value={draft}
               onChange={(event) => setDraft(event.currentTarget.value)}
               onKeyDown={(event) => {
@@ -255,7 +255,7 @@ export function ThreadNoteCard({
           </div>
         ) : (
           <>
-            <p className="mt-2 min-w-0 max-h-[calc(100dvh-10rem)] overflow-y-auto whitespace-pre-wrap wrap-anywhere text-sm">
+            <p className="mt-2 min-w-0 max-h-[min(14rem,28dvh)] overflow-y-auto whitespace-pre-wrap wrap-anywhere text-sm">
               {note}
             </p>
             {canEdit ? (

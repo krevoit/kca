@@ -34,7 +34,7 @@ export const WorkflowAgentTranscriptReadObserver = Context.Reference<
     readonly endOffset: number;
     readonly lineCount: number;
   }) => Effect.Effect<void>
->("t3/orchestration/WorkflowAgentTranscriptReadObserver", {
+>("kca-code/orchestration/WorkflowAgentTranscriptReadObserver", {
   defaultValue: () => () => Effect.void,
 });
 

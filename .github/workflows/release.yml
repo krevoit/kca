@@ -398,8 +398,12 @@ jobs:
       (github.event_name != 'schedule' || needs.resolve_commit.outputs.has_changes == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    # Previews build any branch, but production admits only main and v* tags.
+    # The empty name runs previews with no environment, so their Clerk and relay
+    # ids come from .env.example. Everything else matches nightly: the tracing
+    # read below needs only repository-level Cloudflare credentials.
     environment:
-      name: production
+      name: ${{ inputs.channel != 'preview' && 'production' || '' }}
     outputs:
       clerk_publishable_key: ${{ steps.public_config.outputs.clerk_publishable_key }}
       clerk_jwt_template: ${{ steps.public_config.outputs.clerk_jwt_template }}
@@ -477,6 +481,8 @@ jobs:
       - id: public_config
         name: Resolve production relay public config
         shell: bash
+        env:
+          PREVIEW: ${{ inputs.channel == 'preview' }}
         run: |
           set -euo pipefail
 

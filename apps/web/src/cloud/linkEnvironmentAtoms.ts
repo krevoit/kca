@@ -6,11 +6,11 @@ import {
 
 import { connectionAtomRuntime } from "../connection/runtime";
 import {
-  linkPrimaryEnvironmentToCloud,
+  linkEnvironmentToCloud,
   type CloudLinkMode,
   type CloudLinkTarget,
-  unlinkPrimaryEnvironmentFromCloud,
-  updatePrimaryCloudPreferences,
+  unlinkEnvironmentFromCloud,
+  updateCloudPreferences,
 } from "./linkEnvironment";
 
 const cloudLinkScheduler = createAtomCommandScheduler();
@@ -19,27 +19,27 @@ const cloudLinkConcurrency = {
   key: (input: { readonly target: CloudLinkTarget }) => input.target.environmentId,
 };
 
-export const linkPrimaryEnvironment = createRuntimeCommand(connectionAtomRuntime, {
-  label: "web:cloud:link-primary-environment",
+export const linkEnvironment = createRuntimeCommand(connectionAtomRuntime, {
+  label: "web:cloud:link-environment",
   scheduler: cloudLinkScheduler,
   concurrency: cloudLinkConcurrency,
   execute: (input: {
     readonly target: CloudLinkTarget;
     readonly clerkToken: string;
     readonly mode?: CloudLinkMode;
-  }) => linkPrimaryEnvironmentToCloud(input),
+  }) => linkEnvironmentToCloud(input),
 });
 
-export const unlinkPrimaryEnvironment = createRuntimeCommand(connectionAtomRuntime, {
-  label: "web:cloud:unlink-primary-environment",
+export const unlinkEnvironment = createRuntimeCommand(connectionAtomRuntime, {
+  label: "web:cloud:unlink-environment",
   scheduler: cloudLinkScheduler,
   concurrency: cloudLinkConcurrency,
   execute: (input: { readonly target: CloudLinkTarget; readonly clerkToken: string | null }) =>
-    unlinkPrimaryEnvironmentFromCloud(input),
+    unlinkEnvironmentFromCloud(input),
 });
 
-export const updatePrimaryEnvironmentPreferences = createRuntimeCommand(connectionAtomRuntime, {
-  label: "web:cloud:update-primary-environment-preferences",
+export const updateEnvironmentPreferences = createRuntimeCommand(connectionAtomRuntime, {
+  label: "web:cloud:update-environment-preferences",
   scheduler: cloudLinkScheduler,
   concurrency: cloudLinkConcurrency,
   execute: (input: {
@@ -47,5 +47,5 @@ export const updatePrimaryEnvironmentPreferences = createRuntimeCommand(connecti
     readonly publishAgentActivity?: boolean;
     readonly tunnelTransport?: CloudTunnelTransport;
     readonly holdWebhooksWhileOffline?: boolean;
-  }) => updatePrimaryCloudPreferences(input),
+  }) => updateCloudPreferences(input),
 });
