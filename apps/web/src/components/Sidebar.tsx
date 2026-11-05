@@ -2971,7 +2971,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
 
   const handleNewThreadClick = (event?: ReactMouseEvent) => {
     if (
-      boringSidebarEnabled ||
+      legacySidebarEnabled ||
       shouldCreateNewThreadInCurrentProject(
         event?.shiftKey ?? false,
         scopeGroups.length,
@@ -3230,7 +3230,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                   newThreadShortcutLabel={newThreadShortcutLabel}
                   newThreadInProjectShortcutLabel={newThreadInProjectShortcutLabel}
                   showNewThreadInProjectHint={
-                    !boringSidebarEnabled &&
+                    !legacySidebarEnabled &&
                     !shouldCreateNewThreadInCurrentProject(
                       false,
                       scopeGroups.length,

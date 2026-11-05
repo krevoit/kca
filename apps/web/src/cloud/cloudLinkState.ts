@@ -16,25 +16,23 @@ import { readCloudLinkState, type CloudLinkTarget } from "./linkEnvironment";
 import { hasCloudPublicConfig } from "./publicConfig";
 
 const cloudLinkStateAtom = Atom.family((environmentId: EnvironmentId) =>
-  connectionAtomRuntime
-    .atom(readCloudLinkState({ target: { environmentId } }))
-    .pipe(
-      Atom.swr({ staleTime: 5_000, revalidateOnMount: true }),
-      Atom.setIdleTTL(5 * 60_000),
-      // KCA fork: the tunnel tally refreshes while the notice watches it.
-      Atom.transform((get, source) => {
-        const result = get(source);
-        const data = Option.getOrNull(AsyncResult.value(result));
-        if (data?.managedTunnelActive && data.tunnelHealth) {
-          const timer = setInterval(() => {
-            if (document.visibilityState === "visible") get.refresh(source);
-          }, 15_000);
-          get.addFinalizer(() => clearInterval(timer));
-        }
-        return result;
-      }),
-      Atom.withLabel(`cloud-link:${environmentId}`),
-    ),
+  connectionAtomRuntime.atom(readCloudLinkState({ target: { environmentId } })).pipe(
+    Atom.swr({ staleTime: 5_000, revalidateOnMount: true }),
+    Atom.setIdleTTL(5 * 60_000),
+    // KCA fork: the tunnel tally refreshes while the notice watches it.
+    Atom.transform((get, source) => {
+      const result = get(source);
+      const data = Option.getOrNull(AsyncResult.value(result));
+      if (data?.managedTunnelActive && data.tunnelHealth) {
+        const timer = setInterval(() => {
+          if (document.visibilityState === "visible") get.refresh(source);
+        }, 15_000);
+        get.addFinalizer(() => clearInterval(timer));
+      }
+      return result;
+    }),
+    Atom.withLabel(`cloud-link:${environmentId}`),
+  ),
 );
 
 const EMPTY_CLOUD_LINK_STATE_ATOM = Atom.make(

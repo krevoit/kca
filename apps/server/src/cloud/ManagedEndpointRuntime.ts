@@ -847,9 +847,7 @@ export const make = Effect.gen(function* () {
             .pipe(Effect.orElseSucceed(() => Option.none()));
           transport = Option.getOrElse(
             decodeTransport(
-              Option.isSome(stored)
-                ? bytesToString(stored.value)
-                : env.TUNNEL_TRANSPORT_PROTOCOL,
+              Option.isSome(stored) ? bytesToString(stored.value) : env.TUNNEL_TRANSPORT_PROTOCOL,
             ),
             () => "auto" as const,
           );

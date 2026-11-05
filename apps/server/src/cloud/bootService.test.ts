@@ -412,8 +412,12 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
           : setting === "manager-only"
             ? path.join(configRoot, "config root")
             : undefined;
-      const { service, makeService, home, statePath, timeouts, runtime, control } =
-        yield* makeHarness("linux", undefined, xdgConfigHome, managerXdgConfigHome);
+      const { service, makeService, home, statePath, timeouts, control } = yield* makeHarness(
+        "linux",
+        undefined,
+        xdgConfigHome,
+        managerXdgConfigHome,
+      );
       const unitPath = path.join(
         setting === "relocated" || setting === "manager-only" || setting === "manager-unavailable"
           ? path.join(configRoot, "config root")
